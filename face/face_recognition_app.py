@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 """
-Smart Gate - face recognition application.
+Smart Gate - face recognition application for Raspberry Pi Camera.
+
+This version uses Picamera2/libcamera instead of cv2.VideoCapture.
 
 Behavior:
-    1. Start the process.
-    2. Load registered embeddings from face.db.
-    3. Open the camera.
-    4. For a fixed period, periodically run face recognition.
-    5. If a registered student exceeds the similarity threshold, print one JSON
-       result to stdout and exit successfully.
-    6. If the timeout expires, print {"authenticated": false, ...} and exit.
+    1. Load registered embeddings from face.db.
+    2. Open the Raspberry Pi camera using Picamera2.
+    3. Capture frames for a fixed period.
+    4. Run face recognition at a configurable interval.
+    5. Exit immediately when a registered face exceeds the threshold.
+    6. Otherwise exit when the timeout expires.
 
-The application does NOT train a model and does NOT write captured frames to disk.
+No captured image is written to disk.
 
 Default environment variables:
     FACE_AUTH_DB_PATH=./face.db
@@ -22,24 +23,17 @@ Default environment variables:
     FACE_AUTH_DURATION_SECONDS=8
     FACE_AUTH_INFERENCE_INTERVAL_SECONDS=0.3
     FACE_AUTH_CAMERA_INDEX=0
+    FACE_AUTH_CAMERA_WIDTH=640
+    FACE_AUTH_CAMERA_HEIGHT=480
 
 Example:
     python face_recognition_app.py
-
-    python face_recognition_app.py \
-        --duration 8 \
-        --threshold 0.5 \
-        --camera 0
 
 Output on success:
     {"authenticated":true,"studentNumber":"1234567890","similarity":0.812}
 
 Output on timeout:
     {"authenticated":false,"reason":"timeout"}
-
-Exit codes:
-    0: recognition completed (success or timeout)
-    1: application/configuration/runtime error
 """
 
 import argparse
@@ -52,9 +46,18 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
-import cv2
 import numpy as np
 from insightface.app import FaceAnalysis
+
+try:
+    from picamera2 import Picamera2
+except ImportError as exc:
+    raise RuntimeError(
+        "Picamera2 is not available. On Raspberry Pi OS, install it with "
+        "'sudo apt install -y python3-picamera2'. If using a venv, create it "
+        "with '--system-site-packages' so the apt-installed Picamera2/libcamera "
+        "packages are visible."
+    ) from exc
 
 
 DB_PATH_DEFAULT = os.getenv("FACE_AUTH_DB_PATH", "./face.db")
@@ -66,9 +69,9 @@ INTERVAL_DEFAULT = float(
     os.getenv("FACE_AUTH_INFERENCE_INTERVAL_SECONDS", "0.3")
 )
 CAMERA_INDEX_DEFAULT = int(os.getenv("FACE_AUTH_CAMERA_INDEX", "0"))
+CAMERA_WIDTH_DEFAULT = int(os.getenv("FACE_AUTH_CAMERA_WIDTH", "640"))
+CAMERA_HEIGHT_DEFAULT = int(os.getenv("FACE_AUTH_CAMERA_HEIGHT", "480"))
 
-# InsightFace currently emits a scikit-image deprecation warning internally.
-# It is unrelated to recognition correctness, so keep normal output clean.
 warnings.filterwarnings(
     "ignore",
     message="`estimate` is deprecated",
@@ -79,7 +82,7 @@ warnings.filterwarnings(
 @dataclass(frozen=True)
 class FaceDatabase:
     student_numbers: list[str]
-    embeddings: np.ndarray  # shape: (N, D), L2-normalized
+    embeddings: np.ndarray
 
 
 @dataclass(frozen=True)
@@ -89,9 +92,6 @@ class MatchResult:
 
 
 def emit(payload: dict) -> None:
-    """
-    stdout is reserved for the machine-readable final result.
-    """
     print(
         json.dumps(
             payload,
@@ -103,19 +103,14 @@ def emit(payload: dict) -> None:
 
 
 def log(message: str) -> None:
-    """
-    Human-readable diagnostics go to stderr so callers can parse stdout safely.
-    """
     print(message, file=sys.stderr, flush=True)
 
 
 def l2_normalize(vector: np.ndarray) -> np.ndarray:
     vector = np.asarray(vector, dtype=np.float32).reshape(-1)
     norm = float(np.linalg.norm(vector))
-
     if norm <= 1e-12:
         raise ValueError("zero-length embedding")
-
     return vector / norm
 
 
@@ -146,20 +141,18 @@ def load_face_database(db_path: Path) -> FaceDatabase:
             raise RuntimeError("Face database contains an empty embedding")
 
         if expected_dim is None:
-            expected_dim = int(vector.size)
+            expected_dim = vector.size
         elif vector.size != expected_dim:
             raise RuntimeError(
                 "Face database contains embeddings with inconsistent dimensions"
             )
 
-        vectors.append(l2_normalize(vector))
         student_numbers.append(str(student_number))
-
-    embeddings = np.vstack(vectors).astype(np.float32, copy=False)
+        vectors.append(l2_normalize(vector))
 
     return FaceDatabase(
         student_numbers=student_numbers,
-        embeddings=embeddings,
+        embeddings=np.vstack(vectors).astype(np.float32, copy=False),
     )
 
 
@@ -179,20 +172,13 @@ def extract_embedding(
     analyzer: FaceAnalysis,
     frame_bgr: np.ndarray,
 ) -> np.ndarray | None:
-    """
-    Return one normalized embedding.
-
-    For an entrance terminal, recognition is accepted only when exactly one
-    face is visible. Zero or multiple faces simply cause this frame to be
-    skipped; the application keeps trying until timeout.
-    """
     faces = analyzer.get(frame_bgr)
 
+    # Entrance terminal: accept frames with exactly one visible face.
     if len(faces) != 1:
         return None
 
     face = faces[0]
-
     embedding = getattr(face, "normed_embedding", None)
     if embedding is None:
         embedding = face.embedding
@@ -204,19 +190,13 @@ def find_best_match(
     query_embedding: np.ndarray,
     database: FaceDatabase,
 ) -> MatchResult:
-    """
-    Compare against every enrolled embedding.
-
-    Because both the query and stored vectors are L2-normalized, dot product is
-    cosine similarity. Multiple embeddings may belong to the same student; the
-    single highest-scoring registered embedding wins.
-    """
     if query_embedding.size != database.embeddings.shape[1]:
         raise RuntimeError(
             "Query embedding dimension does not match stored embeddings. "
-            "The recognition model may differ from the enrollment model."
+            "Enrollment and recognition must use the same model."
         )
 
+    # All vectors are L2-normalized, therefore dot product == cosine similarity.
     similarities = database.embeddings @ query_embedding
     best_index = int(np.argmax(similarities))
 
@@ -226,15 +206,34 @@ def find_best_match(
     )
 
 
-def open_camera(camera_index: int) -> cv2.VideoCapture:
-    camera = cv2.VideoCapture(camera_index)
+def open_camera(
+    camera_index: int,
+    width: int,
+    height: int,
+) -> Picamera2:
+    cameras = Picamera2.global_camera_info()
+    if not cameras:
+        raise RuntimeError("No Raspberry Pi camera was detected")
 
-    if not camera.isOpened():
-        camera.release()
-        raise RuntimeError(f"Could not open camera index {camera_index}")
+    if camera_index < 0 or camera_index >= len(cameras):
+        raise RuntimeError(
+            f"Camera index {camera_index} is unavailable "
+            f"(detected cameras: {len(cameras)})"
+        )
 
-    # Avoid building up an old-frame queue on backends that support this.
-    camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    camera = Picamera2(camera_index)
+
+    # Picamera2's RGB888 capture_array is B,G,R byte order, which is what
+    # OpenCV/InsightFace expect.
+    config = camera.create_preview_configuration(
+        main={
+            "size": (width, height),
+            "format": "RGB888",
+        },
+        buffer_count=4,
+    )
+    camera.configure(config)
+    camera.start()
 
     return camera
 
@@ -244,41 +243,48 @@ def recognize_for_period(
     analyzer: FaceAnalysis,
     database: FaceDatabase,
     camera_index: int,
+    camera_width: int,
+    camera_height: int,
     duration: float,
     interval: float,
     threshold: float,
 ) -> MatchResult | None:
-    camera = open_camera(camera_index)
+    camera = open_camera(
+        camera_index=camera_index,
+        width=camera_width,
+        height=camera_height,
+    )
 
     try:
-        deadline = time.monotonic() + duration
+        started_at = time.monotonic()
+        deadline = started_at + duration
         last_inference_at = -float("inf")
 
-        # Give auto exposure / white balance a short opportunity to settle while
-        # still reading frames. This delay is included in the requested period.
         while time.monotonic() < deadline:
-            ok, frame = camera.read()
-
-            if not ok or frame is None:
-                continue
+            # This remains entirely in memory.
+            frame_bgr = camera.capture_array("main")
 
             now = time.monotonic()
-
             if now - last_inference_at < interval:
                 continue
 
             last_inference_at = now
 
-            query_embedding = extract_embedding(analyzer, frame)
+            query_embedding = extract_embedding(
+                analyzer=analyzer,
+                frame_bgr=frame_bgr,
+            )
 
             if query_embedding is None:
                 continue
 
-            match = find_best_match(query_embedding, database)
+            match = find_best_match(
+                query_embedding=query_embedding,
+                database=database,
+            )
 
             log(
-                "face detected: "
-                f"best_similarity={match.similarity:.3f}, "
+                f"face detected: similarity={match.similarity:.3f}, "
                 f"accepted={match.similarity >= threshold}"
             )
 
@@ -287,56 +293,28 @@ def recognize_for_period(
 
         return None
     finally:
-        camera.release()
+        try:
+            camera.stop()
+        finally:
+            camera.close()
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Recognize one registered face for a fixed period."
+        description=(
+            "Recognize one registered face for a fixed period "
+            "using a Raspberry Pi Camera."
+        )
     )
-    parser.add_argument(
-        "--db",
-        default=DB_PATH_DEFAULT,
-        help=f"SQLite face DB path (default: {DB_PATH_DEFAULT})",
-    )
-    parser.add_argument(
-        "--model",
-        default=MODEL_NAME_DEFAULT,
-        help=f"InsightFace model name (default: {MODEL_NAME_DEFAULT})",
-    )
-    parser.add_argument(
-        "--det-size",
-        type=int,
-        default=DET_SIZE_DEFAULT,
-        help=f"Face detector input size (default: {DET_SIZE_DEFAULT})",
-    )
-    parser.add_argument(
-        "--threshold",
-        type=float,
-        default=THRESHOLD_DEFAULT,
-        help=f"Cosine-similarity threshold (default: {THRESHOLD_DEFAULT})",
-    )
-    parser.add_argument(
-        "--duration",
-        type=float,
-        default=DURATION_DEFAULT,
-        help=f"Recognition period in seconds (default: {DURATION_DEFAULT})",
-    )
-    parser.add_argument(
-        "--interval",
-        type=float,
-        default=INTERVAL_DEFAULT,
-        help=(
-            "Minimum seconds between inference attempts "
-            f"(default: {INTERVAL_DEFAULT})"
-        ),
-    )
-    parser.add_argument(
-        "--camera",
-        type=int,
-        default=CAMERA_INDEX_DEFAULT,
-        help=f"OpenCV camera index (default: {CAMERA_INDEX_DEFAULT})",
-    )
+    parser.add_argument("--db", default=DB_PATH_DEFAULT)
+    parser.add_argument("--model", default=MODEL_NAME_DEFAULT)
+    parser.add_argument("--det-size", type=int, default=DET_SIZE_DEFAULT)
+    parser.add_argument("--threshold", type=float, default=THRESHOLD_DEFAULT)
+    parser.add_argument("--duration", type=float, default=DURATION_DEFAULT)
+    parser.add_argument("--interval", type=float, default=INTERVAL_DEFAULT)
+    parser.add_argument("--camera", type=int, default=CAMERA_INDEX_DEFAULT)
+    parser.add_argument("--width", type=int, default=CAMERA_WIDTH_DEFAULT)
+    parser.add_argument("--height", type=int, default=CAMERA_HEIGHT_DEFAULT)
 
     args = parser.parse_args()
 
@@ -348,6 +326,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--duration must be positive")
     if args.interval < 0:
         parser.error("--interval must be zero or positive")
+    if args.width <= 0 or args.height <= 0:
+        parser.error("--width and --height must be positive")
 
     return args
 
@@ -356,15 +336,11 @@ def main() -> int:
     args = parse_args()
 
     try:
-        db_path = Path(args.db)
+        database = load_face_database(Path(args.db))
 
-        log(f"loading face database: {db_path}")
-        database = load_face_database(db_path)
-
-        unique_students = len(set(database.student_numbers))
         log(
             f"loaded {database.embeddings.shape[0]} embeddings "
-            f"for {unique_students} students"
+            f"for {len(set(database.student_numbers))} students"
         )
 
         log(
@@ -377,7 +353,9 @@ def main() -> int:
         )
 
         log(
-            f"recognition started: duration={args.duration:.1f}s, "
+            f"camera={args.camera}, "
+            f"resolution={args.width}x{args.height}, "
+            f"duration={args.duration:.1f}s, "
             f"interval={args.interval:.2f}s, "
             f"threshold={args.threshold:.3f}"
         )
@@ -386,46 +364,40 @@ def main() -> int:
             analyzer=analyzer,
             database=database,
             camera_index=args.camera,
+            camera_width=args.width,
+            camera_height=args.height,
             duration=args.duration,
             interval=args.interval,
             threshold=args.threshold,
         )
 
         if match is None:
-            emit(
-                {
-                    "authenticated": False,
-                    "reason": "timeout",
-                }
-            )
+            emit({
+                "authenticated": False,
+                "reason": "timeout",
+            })
             return 0
 
-        emit(
-            {
-                "authenticated": True,
-                "studentNumber": match.student_number,
-                "similarity": round(match.similarity, 6),
-            }
-        )
+        emit({
+            "authenticated": True,
+            "studentNumber": match.student_number,
+            "similarity": round(match.similarity, 6),
+        })
         return 0
 
     except KeyboardInterrupt:
-        emit(
-            {
-                "authenticated": False,
-                "reason": "cancelled",
-            }
-        )
+        emit({
+            "authenticated": False,
+            "reason": "cancelled",
+        })
         return 0
+
     except Exception as exc:
-        # Do not dump registered student numbers or embeddings.
         log(f"error: {exc}")
-        emit(
-            {
-                "authenticated": False,
-                "reason": "application_error",
-            }
-        )
+        emit({
+            "authenticated": False,
+            "reason": "application_error",
+        })
         return 1
 
 
