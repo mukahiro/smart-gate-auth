@@ -82,6 +82,8 @@ APIへ連携する際は、一意な`eventId`、学籍番号、端末ID、入退
 
 現在のカード認証アプリが行うローカル状態の自動切替は暫定実装であり、GPIOボタン対応後に置き換える予定です。
 
+顔認証、カード認証、LCD、ボタン、圧電ブザー、API送信をまとめる端末アプリの構成は[統合認証Appの設計方針](terminal/README.md)を参照してください。統合認証Appでは入退室イベントをローカル保存せず、APIへの直接送信のみを行う方針です。
+
 ## ファイル構成
 
 ```text
@@ -93,6 +95,8 @@ smart-gate-auth/
 │   ├── face_recognition_app.py # Raspberry Pi向け顔認証アプリ
 │   ├── face-auth.md          # 顔認証のセットアップ・運用方法
 │   └── requirements.txt      # 顔認証のPython依存関係
+├── terminal/
+│   └── README.md             # 統合認証Appの設計方針
 └── card/
     ├── card-auth.py          # カード認証アプリ
     ├── card-auth.md          # カード認証のセットアップ・運用方法
