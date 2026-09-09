@@ -1,29 +1,28 @@
 from __future__ import annotations
 
 """
-Face enrollment HTTP service.
+顔画像から顔埋め込みを登録するHTTPサービス。
 
-Contract:
+インターフェース:
     PUT /
     Authorization: Bearer <FACE_AUTH_APP_BEARER_TOKEN>
     Content-Type: multipart/form-data
 
-Form fields:
-    studentNumber: 10-digit numeric string
-    images:        1..10 image/* files, each non-empty and <= 10 MiB
+フォーム項目:
+    studentNumber: 半角数字10桁の文字列
+    images:        1～10個のimage/*ファイル（空でなく、各10 MiB以下）
 
-Behavior:
-    - Extract one normalized face embedding from every image.
-    - If ANY image is invalid or embedding extraction fails, do not touch SQLite.
-    - If ALL images succeed, atomically replace every embedding for studentNumber.
-    - Source images are not written by this application to its own persistent
-      database or application-controlled file storage.
-    - Success returns HTTP 204 No Content.
+動作:
+    - 各画像から正規化済みの顔埋め込みを1件抽出する。
+    - 画像が1件でも不正、または埋め込み抽出に失敗した場合はSQLiteを更新しない。
+    - 全画像の処理に成功した場合、studentNumberの全埋め込みを原子的に置き換える。
+    - 元画像は本アプリの永続DBやアプリ管理下のファイル領域に保存しない。
+    - 成功時はHTTP 204 No Contentを返す。
 
-SQLite schema:
+SQLiteスキーマ:
     face_embeddings(student_number TEXT, embedding BLOB)
 
-Run:
+起動例:
     export FACE_AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
     uvicorn face_auth_app:app --host 127.0.0.1 --port 8001
 """
@@ -53,8 +52,8 @@ MODEL_NAME = os.getenv("FACE_AUTH_MODEL_NAME", "buffalo_sc")
 DET_SIZE = int(os.getenv("FACE_AUTH_DET_SIZE", "320"))
 BEARER_TOKEN = os.getenv("FACE_AUTH_APP_BEARER_TOKEN", "")
 
-# FaceAnalysis is loaded once and reused. Enrollment is low-frequency, so a
-# lock keeps concurrent requests from invoking the model simultaneously.
+# FaceAnalysisは起動時に一度だけ読み込み、リクエスト間で再利用する。
+# 同時リクエストからモデルが並行実行されないようロックで保護する。
 face_analyzer: FaceAnalysis | None = None
 model_lock = threading.Lock()
 
@@ -122,7 +121,7 @@ app = FastAPI(
 
 @app.middleware("http")
 async def authenticate_registration_request(request: Request, call_next):
-    # Authenticate before the endpoint handles multipart fields.
+    # multipartのフォーム項目を処理する前に認証する。
     if request.method == "PUT" and request.url.path == "/":
         authorization = request.headers.get("authorization", "")
         expected = f"Bearer {BEARER_TOKEN}"
@@ -188,8 +187,7 @@ async def read_and_validate_image(upload: UploadFile) -> bytes:
             detail="Every images file must have an image/* Content-Type",
         )
 
-    # Read one byte beyond the limit so oversize files can be detected without
-    # accepting an arbitrarily large object into memory.
+    # 上限より1バイトだけ多く読み、無制限にメモリへ載せずに超過を検出する。
     data = await upload.read(MAX_IMAGE_BYTES + 1)
 
     if len(data) == 0:
@@ -208,11 +206,10 @@ async def read_and_validate_image(upload: UploadFile) -> bytes:
 
 
 def replace_embeddings(student_number: str, embeddings: list[np.ndarray]) -> None:
-    """
-    Atomically replace every embedding for one student.
+    """1人の学生に登録された全埋め込みを原子的に置き換える。
 
-    DELETE and all INSERTs are executed in the same transaction. Therefore,
-    a failure cannot leave the student with a partially replaced enrollment.
+    DELETEと全INSERTを同一トランザクションで実行するため、失敗時に
+    一部の埋め込みだけが置き換わった状態にはならない。
     """
     blobs = [
         np.asarray(embedding, dtype=np.float32).tobytes()
@@ -259,8 +256,7 @@ async def replace_face_images(
             detail="images must contain between 1 and 10 files",
         )
 
-    # Build the complete replacement set first. No database mutation happens
-    # until every supplied image has produced a valid embedding.
+    # 全画像から正常な埋め込みを抽出してから、置換対象をまとめてDBへ反映する。
     embeddings: list[np.ndarray] = []
 
     for index, upload in enumerate(images, start=1):
@@ -272,8 +268,7 @@ async def replace_face_images(
         except HTTPException:
             raise
         except ValueError as exc:
-            # Do not include filename, student number, image bytes, or other
-            # sensitive request data in the response/log.
+            # ファイル名、学籍番号、画像データなどの機微情報を応答やログに含めない。
             raise HTTPException(
                 status_code=422,
                 detail=f"Image {index} was rejected: {exc}",
@@ -284,7 +279,7 @@ async def replace_face_images(
     try:
         replace_embeddings(student_number, embeddings)
     except sqlite3.Error as exc:
-        # Keep DB internals and student number out of the API response.
+        # DB内部情報や学籍番号をAPI応答に含めない。
         raise HTTPException(
             status_code=500,
             detail="Failed to update face enrollment",

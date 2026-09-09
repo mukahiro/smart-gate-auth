@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 """
-Smart Gate - face recognition application for Raspberry Pi Camera.
+Raspberry Pi Cameraを使用するSmart Gate顔認証アプリ。
 
-This version uses Picamera2/libcamera instead of cv2.VideoCapture.
+カメラ入力にはcv2.VideoCaptureではなくPicamera2/libcameraを使用する。
 
-Behavior:
-    1. Load registered embeddings from face.db.
-    2. Open the Raspberry Pi camera using Picamera2.
-    3. Capture frames for a fixed period.
-    4. Run face recognition at a configurable interval.
-    5. Exit immediately when a registered face exceeds the threshold.
-    6. Otherwise exit when the timeout expires.
+動作:
+    1. face.dbから登録済みの顔埋め込みを読み込む。
+    2. Picamera2でRaspberry Pi Cameraを開く。
+    3. 指定時間だけフレームを取得する。
+    4. 設定した間隔で顔認証を実行する。
+    5. 登録顔との類似度が閾値以上になった時点で正常終了する。
+    6. 認証されなければタイムアウト時に終了する。
 
-No captured image is written to disk.
+取得した画像はディスクへ保存しない。
 
-Default environment variables:
+環境変数のデフォルト値:
     FACE_AUTH_DB_PATH=./face.db
     FACE_AUTH_MODEL_NAME=buffalo_sc
     FACE_AUTH_DET_SIZE=320
@@ -26,13 +26,13 @@ Default environment variables:
     FACE_AUTH_CAMERA_WIDTH=640
     FACE_AUTH_CAMERA_HEIGHT=480
 
-Example:
+実行例:
     python face_recognition_app.py
 
-Output on success:
+認証成功時の出力:
     {"authenticated":true,"studentNumber":"1234567890","similarity":0.812}
 
-Output on timeout:
+タイムアウト時の出力:
     {"authenticated":false,"reason":"timeout"}
 """
 
@@ -174,7 +174,7 @@ def extract_embedding(
 ) -> np.ndarray | None:
     faces = analyzer.get(frame_bgr)
 
-    # Entrance terminal: accept frames with exactly one visible face.
+    # 入退室端末では、顔がちょうど1人分だけ写ったフレームを受け付ける。
     if len(faces) != 1:
         return None
 
@@ -196,7 +196,7 @@ def find_best_match(
             "Enrollment and recognition must use the same model."
         )
 
-    # All vectors are L2-normalized, therefore dot product == cosine similarity.
+    # 全ベクトルはL2正規化済みなので、内積がコサイン類似度になる。
     similarities = database.embeddings @ query_embedding
     best_index = int(np.argmax(similarities))
 
@@ -223,8 +223,8 @@ def open_camera(
 
     camera = Picamera2(camera_index)
 
-    # Picamera2's RGB888 capture_array is B,G,R byte order, which is what
-    # OpenCV/InsightFace expect.
+    # Picamera2のRGB888をcapture_arrayで取得するとB、G、R順になるため、
+    # OpenCVとInsightFaceへそのまま渡せる。
     config = camera.create_preview_configuration(
         main={
             "size": (width, height),
@@ -261,7 +261,7 @@ def recognize_for_period(
         last_inference_at = -float("inf")
 
         while time.monotonic() < deadline:
-            # This remains entirely in memory.
+            # 取得したフレームはメモリ内だけで処理する。
             frame_bgr = camera.capture_array("main")
 
             now = time.monotonic()
