@@ -23,7 +23,7 @@ class ConsoleBuzzer:
 
 
 class GpioBuzzer:
-    """Active buzzer on BCM GPIO 18. Calls are serialized."""
+    """Passive piezo sounder driven by PWM on BCM GPIO 18."""
 
     _PATTERNS: dict[Sound, tuple[float, ...]] = {
         "accepted": (0.06,),
@@ -33,7 +33,9 @@ class GpioBuzzer:
         "device_error": (0.20, 0.10, 0.20, 0.10, 0.20),
     }
 
-    def __init__(self, pin: int = 18):
+    def __init__(self, pin: int = 18, frequency_hz: int = 4000):
+        if frequency_hz <= 0:
+            raise ValueError("buzzer frequency must be positive")
         try:
             import RPi.GPIO as gpio
         except ImportError as exc:
@@ -43,16 +45,27 @@ class GpioBuzzer:
         self._lock = threading.Lock()
         gpio.setmode(gpio.BCM)
         gpio.setup(pin, gpio.OUT, initial=gpio.LOW)
+        self._pwm = gpio.PWM(pin, frequency_hz)
 
     def play(self, sound: Sound) -> None:
         with self._lock:
             pattern = self._PATTERNS[sound]
-            for index, duration in enumerate(pattern):
-                self._gpio.output(self._pin, self._gpio.HIGH if index % 2 == 0 else self._gpio.LOW)
-                time.sleep(duration)
-            self._gpio.output(self._pin, self._gpio.LOW)
+            try:
+                self._pwm.start(0.0)
+                for index, duration in enumerate(pattern):
+                    if index % 2 == 0:
+                        # PKM13EPYH4000-A0 is a passive 4 kHz piezo sounder.
+                        # A static HIGH only produces a click at each edge.
+                        self._pwm.ChangeDutyCycle(50.0)
+                    else:
+                        self._pwm.ChangeDutyCycle(0.0)
+                    time.sleep(duration)
+            finally:
+                self._pwm.ChangeDutyCycle(0.0)
+                self._pwm.stop()
+                self._gpio.output(self._pin, self._gpio.LOW)
 
     def close(self) -> None:
+        self._pwm.stop()
         self._gpio.output(self._pin, self._gpio.LOW)
         self._gpio.cleanup(self._pin)
-

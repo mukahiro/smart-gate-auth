@@ -30,7 +30,7 @@ class TerminalApp:
 
     def _make_buzzer(self) -> Any:
         try:
-            return GpioBuzzer(self.args.buzzer_pin)
+            return GpioBuzzer(self.args.buzzer_pin, self.args.buzzer_frequency)
         except Exception:
             logging.exception("buzzer unavailable; using log output")
             return ConsoleBuzzer()
@@ -137,6 +137,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--check-in-pin", type=int, default=17)
     parser.add_argument("--check-out-pin", type=int, default=27)
     parser.add_argument("--buzzer-pin", type=int, default=18)
+    parser.add_argument("--buzzer-frequency", type=int, default=4000)
     parser.add_argument("--debounce-ms", type=int, default=250)
     parser.add_argument("--disable-card", action="store_true")
     parser.add_argument("--disable-face", action="store_true")
@@ -149,6 +150,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("device-id must be non-empty and timeouts must be positive")
     if args.result_seconds < 0 or args.debounce_ms < 0:
         parser.error("result-seconds and debounce-ms must not be negative")
+    if args.buzzer_frequency <= 0:
+        parser.error("buzzer-frequency must be positive")
     return args
 
 
