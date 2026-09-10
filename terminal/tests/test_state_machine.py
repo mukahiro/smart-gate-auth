@@ -111,7 +111,7 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
             await controller.run_session("check_in")
         self.assertEqual(len(api.events), 1)
         self.assertIn(
-            ("[!] ﾂｳｼﾝ ｴﾗｰ", "ｷﾛｸ ｻﾚﾏｾﾝﾃﾞｼﾀ", "ﾓｳｲﾁﾄﾞ ｵﾈｶﾞｲｼﾏｽ", ""),
+            ("::ERROR::", "ﾂｳｼﾝ ｴﾗｰ", "ﾓｳｲﾁﾄﾞ ｵﾀﾒｼｸﾀﾞｻｲ", ""),
             self.display.messages,
         )
         self.assertIn("api_failed", self.buzzer.sounds)

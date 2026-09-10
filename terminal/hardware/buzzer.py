@@ -25,12 +25,27 @@ class ConsoleBuzzer:
 class GpioBuzzer:
     """Passive piezo sounder driven by PWM on BCM GPIO 18."""
 
-    _PATTERNS: dict[Sound, tuple[float, ...]] = {
-        "accepted": (0.06,),
-        "success": (0.08, 0.08, 0.08),
-        "auth_failed": (0.18, 0.10, 0.18),
-        "api_failed": (0.65,),
-        "device_error": (0.20, 0.10, 0.20, 0.10, 0.20),
+    # (frequency ratio against the configured resonance, duration, following gap)
+    _MELODIES: dict[Sound, tuple[tuple[float, float, float], ...]] = {
+        "accepted": ((1.00, 0.07, 0.00),),
+        "success": (
+            (0.80, 0.08, 0.035),
+            (1.00, 0.10, 0.035),
+            (1.20, 0.16, 0.00),
+        ),
+        "auth_failed": (
+            (1.00, 0.14, 0.06),
+            (0.72, 0.24, 0.00),
+        ),
+        "api_failed": (
+            (0.75, 0.22, 0.08),
+            (0.62, 0.34, 0.00),
+        ),
+        "device_error": (
+            (0.58, 0.15, 0.07),
+            (0.58, 0.15, 0.07),
+            (0.58, 0.28, 0.00),
+        ),
     }
 
     def __init__(self, pin: int = 18, frequency_hz: int = 4000):
@@ -42,6 +57,7 @@ class GpioBuzzer:
             raise RuntimeError("RPi.GPIO is not installed") from exc
         self._gpio = gpio
         self._pin = pin
+        self._frequency_hz = frequency_hz
         self._lock = threading.Lock()
         gpio.setmode(gpio.BCM)
         gpio.setup(pin, gpio.OUT, initial=gpio.LOW)
@@ -49,17 +65,20 @@ class GpioBuzzer:
 
     def play(self, sound: Sound) -> None:
         with self._lock:
-            pattern = self._PATTERNS[sound]
             try:
                 self._pwm.start(0.0)
-                for index, duration in enumerate(pattern):
-                    if index % 2 == 0:
-                        # PKM13EPYH4000-A0 is a passive 4 kHz piezo sounder.
-                        # A static HIGH only produces a click at each edge.
-                        self._pwm.ChangeDutyCycle(50.0)
-                    else:
-                        self._pwm.ChangeDutyCycle(0.0)
+                for ratio, duration, gap in self._MELODIES[sound]:
+                    frequency = max(1, round(self._frequency_hz * ratio))
+                    self._pwm.ChangeFrequency(frequency)
+                    self._pwm.ChangeDutyCycle(50.0)
                     time.sleep(duration)
+                    self._pwm.ChangeDutyCycle(0.0)
+                    if gap > 0:
+                        time.sleep(gap)
+                if sound == "accepted":
+                    # Leave a tiny tail so the single acknowledgement does not
+                    # sound like an electrical click.
+                    time.sleep(0.015)
             finally:
                 self._pwm.ChangeDutyCycle(0.0)
                 self._pwm.stop()

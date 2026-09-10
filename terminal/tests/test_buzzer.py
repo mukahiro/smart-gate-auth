@@ -31,6 +31,10 @@ class BuzzerTests(unittest.TestCase):
 
         gpio.PWM.assert_called_once_with(18, 4000)
         pwm.start.assert_called_once_with(0.0)
+        self.assertEqual(
+            [call.args[0] for call in pwm.ChangeFrequency.call_args_list],
+            [3200, 4000, 4800],
+        )
         self.assertEqual(pwm.ChangeDutyCycle.call_args_list[0].args, (50.0,))
         self.assertIn((0.0,), [call.args for call in pwm.ChangeDutyCycle.call_args_list])
         self.assertGreaterEqual(pwm.stop.call_count, 2)
@@ -38,4 +42,3 @@ class BuzzerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
