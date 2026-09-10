@@ -183,7 +183,7 @@ class SessionController:
         await self._notify(
             TerminalState.IDLE,
             ":: smart gate ::",
-            "------",
+            "ﾖｳｺｿ!",
             "[ﾆｭｳｼﾂ]  [ﾀｲｼﾂ]",
             "ﾎﾞﾀﾝｦ ｵｼﾃｸﾀﾞｻｲ",
         )
