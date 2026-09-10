@@ -182,8 +182,8 @@ class SessionController:
     async def _idle(self) -> None:
         await self._notify(
             TerminalState.IDLE,
-            "== smart gate ==",
-            " ",
+            ":: smart gate ::",
+            "------",
             "[ﾆｭｳｼﾂ]  [ﾀｲｼﾂ]",
             "ﾎﾞﾀﾝｦ ｵｼﾃｸﾀﾞｻｲ",
         )
