@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 import signal
+import time
 from pathlib import Path
 from typing import Any
 
@@ -102,7 +103,16 @@ class TerminalApp:
             )
         await self.controller._idle()
         while True:
-            event_type = await self._queue.get()
+            # Wake at the next minute boundary so the idle clock stays current.
+            refresh_in = max(0.05, 60.0 - (time.time() % 60.0))
+            try:
+                event_type = await asyncio.wait_for(
+                    self._queue.get(), timeout=refresh_in
+                )
+            except TimeoutError:
+                if self.controller.is_idle:
+                    await self.controller._idle()
+                continue
             if event_type is None:
                 break
             await self.controller.run_session(event_type)

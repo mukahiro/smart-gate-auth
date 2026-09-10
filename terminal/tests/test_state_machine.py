@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import threading
 import unittest
 
 from terminal.attendance_api import AttendanceApiError
 from terminal.models import AuthenticationResult, TerminalState
-from terminal.state_machine import SessionController
+from terminal.state_machine import SessionController, format_local_datetime
 
 
 class FakeAuthenticator:
@@ -101,7 +102,6 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(api.events[0].event_type, "check_out")
         self.assertEqual(controller.state, TerminalState.IDLE)
         controller.close()
-
     async def test_api_failure_is_not_retried_and_reports_unrecorded(self) -> None:
         api = FakeApi(fail=True)
         controller = self.make_controller(
@@ -111,7 +111,7 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
             await controller.run_session("check_in")
         self.assertEqual(len(api.events), 1)
         self.assertIn(
-            ("::ERROR::", "ﾂｳｼﾝ ｴﾗｰ", "ﾓｳｲﾁﾄﾞ ｵﾀﾒｼｸﾀﾞｻｲ", ""),
+            (":: API ERROR ::", "ﾂｳｼﾝ ｴﾗｰ", "ﾓｳｲﾁﾄﾞ ｵﾀﾒｼｸﾀﾞｻｲ", ""),
             self.display.messages,
         )
         self.assertIn("api_failed", self.buzzer.sounds)
@@ -130,6 +130,14 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
             await controller.run_session("check_in")
         self.assertEqual(len(api.events), 1)
         controller.close()
+
+
+class DateTimeTests(unittest.TestCase):
+    def test_lcd_datetime_format(self) -> None:
+        self.assertEqual(
+            format_local_datetime(datetime(2026, 9, 10, 8, 5)),
+            "2026/09/10 08:05",
+        )
 
 
 if __name__ == "__main__":

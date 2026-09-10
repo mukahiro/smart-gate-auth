@@ -5,6 +5,7 @@ import logging
 import threading
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from functools import partial
 from typing import Any, Protocol
 
@@ -12,6 +13,11 @@ from .attendance_api import AttendanceApiError
 from .hardware.buzzer import Buzzer
 from .hardware.lcd import Display
 from .models import AuthenticationResult, AttendanceEvent, EventType, TerminalState
+
+
+def format_local_datetime(now: datetime | None = None) -> str:
+    current = now if now is not None else datetime.now().astimezone()
+    return current.strftime("%Y/%m/%d %H:%M")
 
 
 class Authenticator(Protocol):
@@ -183,7 +189,7 @@ class SessionController:
         await self._notify(
             TerminalState.IDLE,
             ":: smart gate ::",
-            "ﾖｳｺｿ!",
+            format_local_datetime(),
             "[ﾆｭｳｼﾂ]  [ﾀｲｼﾂ]",
             "ﾎﾞﾀﾝｦ ｵｼﾃｸﾀﾞｻｲ",
         )
