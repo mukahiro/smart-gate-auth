@@ -10,9 +10,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Display a test message on the LCD2004")
     parser.add_argument("--bus", type=int, default=1)
     parser.add_argument("--address", type=lambda value: int(value, 0), default=0x27)
-    parser.add_argument("--seconds", type=float, default=5.0)
-    parser.add_argument("--line1", default="SMART GATE")
-    parser.add_argument("--line2", default="LCD TEST OK")
+    parser.add_argument("--seconds", type=float, default=30.0)
+    parser.add_argument("--line1", default="01234567890123456789")
+    parser.add_argument("--line2", default="LCD2004 TEST OK")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("seconds must be positive")
@@ -20,6 +20,10 @@ def main() -> None:
     lcd = I2cLcd(bus_number=args.bus, address=args.address)
     try:
         lcd.show(args.line1, args.line2)
+        print(
+            f"LCD 0x{args.address:02x} に {args.seconds:g} 秒間表示しています。"
+            "表示中に背面のコントラスト調整ねじをゆっくり一周させてください。"
+        )
         time.sleep(args.seconds)
     finally:
         lcd.close()

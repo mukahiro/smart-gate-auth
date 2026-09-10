@@ -105,7 +105,10 @@ class I2cLcd:
         # HD44780 power-on and 8-bit to 4-bit initialization sequence.
         time.sleep(0.05)
         self._write_expander(0)
-        time.sleep(0.001)
+        # Match the reference LiquidCrystal_I2C sequence. Some inexpensive
+        # LCD2004/backpack combinations need substantially longer than the
+        # HD44780 minimum after the expander first becomes accessible.
+        time.sleep(1.0)
         self._write_nibble(0x30)
         time.sleep(0.0045)
         self._write_nibble(0x30)

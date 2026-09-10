@@ -344,11 +344,11 @@ export AUTH_LCD_ADDRESS='0x3f'
 python -m terminal.app --lcd-address 0x3f
 ```
 
-依存パッケージの導入後、LCDだけを5秒間試験できます。
+依存パッケージの導入後、LCDだけを30秒間試験できます。表示中に背面のコントラスト調整ねじをゆっくり回してください。試験終了時に画面を消してバックライトをOFFにする動作は正常です。
 
 ```bash
 python -m pip install -r terminal/requirements.txt
-python -m terminal.lcd_test --address 0x27
+python -m terminal.lcd_test --address 0x27 --seconds 30
 ```
 
 文字が表示されず黒い四角だけ見える場合は、I²C通信ではなく背面の可変抵抗によるコントラスト調整も確認してください。固定メッセージは英数字へ変換し、APIの`lcdDisplayName`に含まれる半角カタカナはLCD2004の日本語ROMコードへ変換します。
