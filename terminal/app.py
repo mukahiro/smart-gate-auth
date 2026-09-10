@@ -11,7 +11,7 @@ from typing import Any
 from terminal.attendance_api import AttendanceApi
 from terminal.hardware.buttons import ButtonController
 from terminal.hardware.buzzer import ConsoleBuzzer, GpioBuzzer
-from terminal.hardware.lcd import ConsoleLcd
+from terminal.hardware.lcd import ConsoleLcd, I2cLcd, ResilientDisplay
 from terminal.models import EventType
 from terminal.state_machine import SessionController
 
@@ -20,7 +20,7 @@ class TerminalApp:
     def __init__(self, args: argparse.Namespace):
         self.args = args
         self.api = AttendanceApi(args.api_url, args.token, args.api_timeout)
-        self.display = ConsoleLcd()
+        self.display = ConsoleLcd() if args.console_hardware else self._make_display()
         self.buzzer = ConsoleBuzzer() if args.console_hardware else self._make_buzzer()
         self.authenticators: list[Any] = []
         self.buttons: ButtonController | None = None
@@ -34,6 +34,19 @@ class TerminalApp:
         except Exception:
             logging.exception("buzzer unavailable; using log output")
             return ConsoleBuzzer()
+
+    def _make_display(self) -> Any:
+        try:
+            lcd = I2cLcd(
+                bus_number=self.args.lcd_bus,
+                address=self.args.lcd_address,
+                columns=self.args.lcd_columns,
+                rows=self.args.lcd_rows,
+            )
+            return ResilientDisplay(lcd)
+        except Exception:
+            logging.exception("LCD unavailable; using log output")
+            return ConsoleLcd()
 
     def _load_authenticators(self) -> None:
         if not self.args.disable_card:
@@ -138,6 +151,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--check-out-pin", type=int, default=27)
     parser.add_argument("--buzzer-pin", type=int, default=18)
     parser.add_argument("--buzzer-frequency", type=int, default=4000)
+    parser.add_argument("--lcd-bus", type=int, default=int(os.getenv("AUTH_LCD_BUS", "1")))
+    parser.add_argument(
+        "--lcd-address",
+        type=lambda value: int(value, 0),
+        default=int(os.getenv("AUTH_LCD_ADDRESS", "0x27"), 0),
+    )
+    parser.add_argument("--lcd-columns", type=int, default=20)
+    parser.add_argument("--lcd-rows", type=int, default=4)
     parser.add_argument("--debounce-ms", type=int, default=250)
     parser.add_argument("--disable-card", action="store_true")
     parser.add_argument("--disable-face", action="store_true")
@@ -152,6 +173,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("result-seconds and debounce-ms must not be negative")
     if args.buzzer_frequency <= 0:
         parser.error("buzzer-frequency must be positive")
+    if args.lcd_bus < 0 or args.lcd_columns <= 0 or not 1 <= args.lcd_rows <= 4:
+        parser.error("LCD bus and dimensions are invalid")
     return args
 
 

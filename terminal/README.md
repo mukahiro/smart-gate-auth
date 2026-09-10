@@ -311,8 +311,6 @@ smart-gate-auth/
 - 入室・退出ボタンの個数とGPIOピン番号
 - プルアップ／プルダウン方式とチャタリング除去時間
 - ボタン操作後の認証タイムアウト時間
-- LCDの型番、接続方式、表示桁数、文字コード
-- 圧電ブザーが能動型か受動型か
 - ブザーのGPIOピン、駆動電圧、トランジスタ回路の有無
 - 顔とカードが同時に異なる人物を返した場合の運用ルール
 - 顔登録サーバーと認証端末間の顔DB配布方式
@@ -331,6 +329,30 @@ smart-gate-auth/
 
 採用ブザー `PKM13EPYH4000-A0` は発振回路を内蔵しない圧電サウンダーです。GPIO18を単純にON/OFFするのではなく、共振周波数に合わせた4 kHz、デューティ比50%のPWMで駆動します。周波数は起動オプション `--buzzer-frequency` で変更できます。定格欄の30 Vp-pは最大許容値であり、30 Vを印加する指定ではありません。
 
+LCDはI²Cバックパック付きLCD2004（20文字×4行）として実装しています。既定値はI²C bus 1、アドレス`0x27`です。Raspberry PiでI²Cを有効化し、次のコマンドで実アドレスを確認してください。
+
+```bash
+sudo raspi-config nonint do_i2c 0
+i2cdetect -y 1
+```
+
+`0x27`以外（例: `0x3f`）で検出された場合は、環境変数または起動引数で指定します。
+
+```bash
+export AUTH_LCD_ADDRESS='0x3f'
+# または
+python -m terminal.app --lcd-address 0x3f
+```
+
+依存パッケージの導入後、LCDだけを5秒間試験できます。
+
+```bash
+python -m pip install -r terminal/requirements.txt
+python -m terminal.lcd_test --address 0x27
+```
+
+文字が表示されず黒い四角だけ見える場合は、I²C通信ではなく背面の可変抵抗によるコントラスト調整も確認してください。固定メッセージは英数字へ変換し、APIの`lcdDisplayName`に含まれる半角カタカナはLCD2004の日本語ROMコードへ変換します。
+
 ## 21. 実装と起動
 
 統合認証Appは `python -m terminal.app` で起動します。次の環境変数を設定してください。
@@ -343,13 +365,13 @@ export FACE_AUTH_DB_PATH='face/face.db'
 python -m terminal.app
 ```
 
-開発PCでは、GPIOボタンとブザーをコンソールへ置き換えられます。
+開発PCでは、GPIOボタン、ブザー、LCDをコンソールへ置き換えられます。
 
 ```bash
 python -m terminal.app --console-buttons --console-hardware
 ```
 
-顔またはカードの初期化に失敗した場合は、正常な認証方式だけで縮退運転します。両方が利用できない場合は起動を中止します。LCDは型番と文字コードが未決定のため、現在は `ConsoleLcd` を使用しています。実機LCDのアダプターは `terminal/hardware/lcd.py` の `Display` インターフェースとして追加してください。
+顔またはカードの初期化に失敗した場合は、正常な認証方式だけで縮退運転します。両方が利用できない場合は起動を中止します。LCDが起動時または動作中に利用できなくなった場合はログ表示へ切り替え、認証処理を継続します。
 
 systemdの雛形は `terminal/smart-gate-terminal.service` にあります。配置先、実行ユーザー、GPIO・カメラ・PC/SCへのアクセス権を実機に合わせて調整してから使用してください。
 
