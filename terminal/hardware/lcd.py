@@ -7,7 +7,13 @@ from typing import Protocol
 
 
 class Display(Protocol):
-    def show(self, line1: str, line2: str = "") -> None: ...
+    def show(
+        self,
+        line1: str,
+        line2: str = "",
+        line3: str = "",
+        line4: str = "",
+    ) -> None: ...
     def close(self) -> None: ...
 
 
@@ -17,9 +23,15 @@ class ConsoleLcd:
     def __init__(self) -> None:
         self._lock = threading.Lock()
 
-    def show(self, line1: str, line2: str = "") -> None:
+    def show(
+        self,
+        line1: str,
+        line2: str = "",
+        line3: str = "",
+        line4: str = "",
+    ) -> None:
         with self._lock:
-            logging.info("LCD | %s | %s", line1, line2)
+            logging.info("LCD | %s | %s | %s | %s", line1, line2, line3, line4)
 
     def close(self) -> None:
         pass
@@ -55,12 +67,15 @@ class I2cLcd:
         address: int = 0x27,
         columns: int = 20,
         rows: int = 4,
+        scroll_interval: float = 0.35,
         bus: object | None = None,
     ) -> None:
         if not 0x03 <= address <= 0x77:
             raise ValueError("LCD I2C address must be a 7-bit address")
         if columns <= 0 or not 1 <= rows <= 4:
             raise ValueError("LCD dimensions are invalid")
+        if scroll_interval < 0:
+            raise ValueError("LCD scroll interval must not be negative")
         if bus is None:
             try:
                 from smbus2 import SMBus
@@ -74,10 +89,22 @@ class I2cLcd:
         self._address = address
         self._columns = columns
         self._rows = rows
+        self._scroll_interval = scroll_interval
         self._backlight = self._BACKLIGHT
         self._lock = threading.Lock()
         self._closed = False
+        self._lines: tuple[bytes, ...] = tuple(b"" for _ in range(rows))
+        self._offsets = [0 for _ in range(rows)]
+        self._stop_scroller = threading.Event()
+        self._scroller: threading.Thread | None = None
         self._initialize()
+        if scroll_interval > 0:
+            self._scroller = threading.Thread(
+                target=self._scroll_loop,
+                name="lcd-scroller",
+                daemon=True,
+            )
+            self._scroller.start()
 
     def _write_expander(self, value: int) -> None:
         self._bus.write_byte(self._address, value | self._backlight)
@@ -122,7 +149,7 @@ class I2cLcd:
         self._command(0x06)
 
     @classmethod
-    def _encode_text(cls, value: str, width: int) -> bytes:
+    def _encode_text(cls, value: str, width: int | None = None) -> bytes:
         value = cls._PHRASES.get(value, value)
         encoded = bytearray()
         for character in value:
@@ -134,24 +161,67 @@ class I2cLcd:
                 encoded.append(codepoint - 0xFF61 + 0xA1)
             else:
                 encoded.append(ord("?"))
-            if len(encoded) == width:
+            if width is not None and len(encoded) == width:
                 break
-        return bytes(encoded).ljust(width, b" ")
+        result = bytes(encoded)
+        return result if width is None else result.ljust(width, b" ")
+
+    @staticmethod
+    def _viewport(value: bytes, width: int, offset: int = 0) -> bytes:
+        if len(value) <= width:
+            return value.center(width, b" ")
+        marquee = value + b"   "
+        repeated = marquee + marquee[:width]
+        return repeated[offset : offset + width]
 
     def _set_cursor(self, column: int, row: int) -> None:
         self._command(0x80 | (self._ROW_OFFSETS[row] + column))
 
-    def show(self, line1: str, line2: str = "") -> None:
-        lines = (line1, line2, "", "")
+    def _render_locked(self) -> None:
+        for row, value in enumerate(self._lines):
+            self._set_cursor(0, row)
+            visible = self._viewport(value, self._columns, self._offsets[row])
+            for byte in visible:
+                self._send(byte, self._RS)
+
+    def _scroll_loop(self) -> None:
+        while not self._stop_scroller.wait(self._scroll_interval):
+            with self._lock:
+                if self._closed:
+                    return
+                changed = False
+                for row, value in enumerate(self._lines):
+                    if len(value) > self._columns:
+                        self._offsets[row] = (self._offsets[row] + 1) % (len(value) + 3)
+                        changed = True
+                if changed:
+                    try:
+                        self._render_locked()
+                    except Exception:
+                        logging.exception("LCD scrolling stopped after an I2C error")
+                        return
+
+    def show(
+        self,
+        line1: str,
+        line2: str = "",
+        line3: str = "",
+        line4: str = "",
+    ) -> None:
+        lines = (line1, line2, line3, line4)
         with self._lock:
             if self._closed:
                 raise RuntimeError("LCD is closed")
-            for row in range(self._rows):
-                self._set_cursor(0, row)
-                for value in self._encode_text(lines[row], self._columns):
-                    self._send(value, self._RS)
+            self._lines = tuple(
+                self._encode_text(lines[row]) for row in range(self._rows)
+            )
+            self._offsets = [0 for _ in range(self._rows)]
+            self._render_locked()
 
     def close(self) -> None:
+        self._stop_scroller.set()
+        if self._scroller is not None:
+            self._scroller.join(timeout=1.0)
         with self._lock:
             if self._closed:
                 return
@@ -173,16 +243,22 @@ class ResilientDisplay:
         self._failed = False
         self._lock = threading.Lock()
 
-    def show(self, line1: str, line2: str = "") -> None:
+    def show(
+        self,
+        line1: str,
+        line2: str = "",
+        line3: str = "",
+        line4: str = "",
+    ) -> None:
         with self._lock:
             if not self._failed:
                 try:
-                    self._primary.show(line1, line2)
+                    self._primary.show(line1, line2, line3, line4)
                     return
                 except Exception:
                     self._failed = True
                     logging.exception("LCD unavailable; using log output")
-            self._fallback.show(line1, line2)
+            self._fallback.show(line1, line2, line3, line4)
 
     def close(self) -> None:
         try:

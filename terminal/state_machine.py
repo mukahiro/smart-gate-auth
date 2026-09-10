@@ -62,9 +62,17 @@ class SessionController:
     def is_idle(self) -> bool:
         return self.state is TerminalState.IDLE
 
-    async def _notify(self, state: TerminalState, line1: str, line2: str = "", sound: str | None = None) -> None:
+    async def _notify(
+        self,
+        state: TerminalState,
+        line1: str,
+        line2: str = "",
+        line3: str = "",
+        line4: str = "",
+        sound: str | None = None,
+    ) -> None:
         self.state = state
-        await self._run_sync(self.display.show, line1, line2)
+        await self._run_sync(self.display.show, line1, line2, line3, line4)
         if sound is not None:
             await self._run_sync(self.buzzer.play, sound)
 
@@ -99,24 +107,43 @@ class SessionController:
     async def run_session(self, event_type: EventType) -> None:
         if not self.is_idle:
             return
-        action = "入室" if event_type == "check_in" else "退出"
+        action = "ﾆｭｳｼﾂ" if event_type == "check_in" else "ﾀｲｼﾂ"
         await self._notify(
             TerminalState.AUTHENTICATING,
-            "顔を向けるか",
-            "カードをかざしてください",
-            "accepted",
+            "[*] ﾆﾝｼｮｳ ｳｹﾂｹﾁｭｳ",
+            action,
+            "ｶｵ ﾏﾀﾊ ｶｰﾄﾞ",
+            "ｶｻﾞｼﾃｸﾀﾞｻｲ",
+            sound="accepted",
         )
         result, errors = await self._first_valid_result()
         if result is None:
             if errors == len(self.authenticators):
-                await self._notify(TerminalState.DEVICE_ERROR, "端末エラー", "管理者に連絡", "device_error")
+                await self._notify(
+                    TerminalState.DEVICE_ERROR,
+                    "[!] ﾀﾝﾏﾂ ｴﾗｰ",
+                    "ﾆﾝｼｮｳｷｷ ﾂｶｴﾏｾﾝ",
+                    "ｶﾝﾘｼｬﾆ ﾚﾝﾗｸ",
+                    sound="device_error",
+                )
             else:
-                await self._notify(TerminalState.AUTH_FAILED, "認証できませんでした", "もう一度操作してください", "auth_failed")
+                await self._notify(
+                    TerminalState.AUTH_FAILED,
+                    "[X] ﾆﾝｼｮｳ ｼｯﾊﾟｲ",
+                    "ｶｵ / ｶｰﾄﾞ",
+                    "ﾓｳｲﾁﾄﾞ ｵﾈｶﾞｲｼﾏｽ",
+                    sound="auth_failed",
+                )
             await asyncio.sleep(self.result_display_seconds)
             await self._idle()
             return
 
-        await self._notify(TerminalState.PROCESSING, "認証しています")
+        await self._notify(
+            TerminalState.PROCESSING,
+            "[...] ﾆﾝｼｮｳ ﾁｭｳ",
+            action,
+            "ｼﾊﾞﾗｸ ｵﾏﾁｸﾀﾞｻｲ",
+        )
         event = AttendanceEvent.from_authentication(
             result, device_id=self.device_id, event_type=event_type
         )
@@ -126,23 +153,41 @@ class SessionController:
             logging.exception("attendance event was not recorded")
             await self._notify(
                 TerminalState.API_FAILED,
-                "通信エラー 未記録",
-                "もう一度操作してください",
-                "api_failed",
+                "[!] ﾂｳｼﾝ ｴﾗｰ",
+                "ｷﾛｸ ｻﾚﾏｾﾝﾃﾞｼﾀ",
+                "ﾓｳｲﾁﾄﾞ ｵﾈｶﾞｲｼﾏｽ",
+                sound="api_failed",
             )
         else:
-            name = response.get("lcdDisplayName") or "認証しました"
-            await self._notify(TerminalState.SUCCESS, str(name), f"{action}しました", "success")
+            name = response.get("lcdDisplayName") or "ﾆﾝｼｮｳ ｼﾏｼﾀ"
+            await self._notify(
+                TerminalState.SUCCESS,
+                "[OK] ｷﾛｸ ｼﾏｼﾀ",
+                str(name),
+                f"{action} ｼﾏｼﾀ",
+                "ｱﾘｶﾞﾄｳｺﾞｻﾞｲﾏｽ",
+                sound="success",
+            )
         await asyncio.sleep(self.result_display_seconds)
 
         card = next((item for item in self.authenticators if hasattr(item, "wait_for_removal")), None)
         if card is not None:
-            await self._notify(TerminalState.COOLDOWN, "カードを離してください")
+            await self._notify(
+                TerminalState.COOLDOWN,
+                "[ ] ｶｰﾄﾞｦ ﾊﾅｼﾃｸﾀﾞｻｲ",
+                "ｵﾏﾁｸﾀﾞｻｲ...",
+            )
             await self._run_sync(card.wait_for_removal)
         await self._idle()
 
     async def _idle(self) -> None:
-        await self._notify(TerminalState.IDLE, "入室/退出を選択")
+        await self._notify(
+            TerminalState.IDLE,
+            "ｽﾏｰﾄ ｹﾞｰﾄ",
+            "[ﾆｭｳｼﾂ]  [ﾀｲｼﾂ]",
+            "ﾎﾞﾀﾝｦ ｵｼﾃｸﾀﾞｻｲ",
+            "ｼﾞｭﾝﾋﾞ OK",
+        )
 
     def close(self) -> None:
         self._executor.shutdown(wait=True, cancel_futures=True)

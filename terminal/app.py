@@ -42,6 +42,7 @@ class TerminalApp:
                 address=self.args.lcd_address,
                 columns=self.args.lcd_columns,
                 rows=self.args.lcd_rows,
+                scroll_interval=self.args.lcd_scroll_interval,
             )
             return ResilientDisplay(lcd)
         except Exception:
@@ -159,6 +160,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--lcd-columns", type=int, default=20)
     parser.add_argument("--lcd-rows", type=int, default=4)
+    parser.add_argument("--lcd-scroll-interval", type=float, default=0.35)
     parser.add_argument("--debounce-ms", type=int, default=250)
     parser.add_argument("--disable-card", action="store_true")
     parser.add_argument("--disable-face", action="store_true")
@@ -175,6 +177,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("buzzer-frequency must be positive")
     if args.lcd_bus < 0 or args.lcd_columns <= 0 or not 1 <= args.lcd_rows <= 4:
         parser.error("LCD bus and dimensions are invalid")
+    if args.lcd_scroll_interval < 0:
+        parser.error("lcd-scroll-interval must not be negative")
     return args
 
 

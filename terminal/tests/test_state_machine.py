@@ -41,8 +41,14 @@ class FakeDisplay:
     def __init__(self):
         self.messages = []
 
-    def show(self, line1: str, line2: str = "") -> None:
-        self.messages.append((line1, line2))
+    def show(
+        self,
+        line1: str,
+        line2: str = "",
+        line3: str = "",
+        line4: str = "",
+    ) -> None:
+        self.messages.append((line1, line2, line3, line4))
 
     def close(self) -> None:
         pass
@@ -104,7 +110,10 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertLogs(level="ERROR"):
             await controller.run_session("check_in")
         self.assertEqual(len(api.events), 1)
-        self.assertIn(("通信エラー 未記録", "もう一度操作してください"), self.display.messages)
+        self.assertIn(
+            ("[!] ﾂｳｼﾝ ｴﾗｰ", "ｷﾛｸ ｻﾚﾏｾﾝﾃﾞｼﾀ", "ﾓｳｲﾁﾄﾞ ｵﾈｶﾞｲｼﾏｽ", ""),
+            self.display.messages,
+        )
         self.assertIn("api_failed", self.buzzer.sounds)
         controller.close()
 
