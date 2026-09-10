@@ -107,13 +107,12 @@ class SessionController:
     async def run_session(self, event_type: EventType) -> None:
         if not self.is_idle:
             return
-        action = "ﾆｭｳｼﾂ" if event_type == "check_in" else "ﾀｲｼﾂ"
+        action = "[ﾆｭｳｼﾂ/ENTER]" if event_type == "check_in" else "[ﾀｲｼﾂ/EXIT]"
         await self._notify(
             TerminalState.AUTHENTICATING,
-            "[*] ﾆﾝｼｮｳ ｳｹﾂｹﾁｭｳ",
+            "[...] ﾆﾝｼｮｳ ｳｹﾂｹﾁｭｳ",
+            "AUTHENTICATING",
             action,
-            "ｶｵ ﾏﾀﾊ ｶｰﾄﾞ",
-            "ｶｻﾞｼﾃｸﾀﾞｻｲ",
             sound="accepted",
         )
         result, errors = await self._first_valid_result()
@@ -121,17 +120,17 @@ class SessionController:
             if errors == len(self.authenticators):
                 await self._notify(
                     TerminalState.DEVICE_ERROR,
-                    "[!] ﾀﾝﾏﾂ ｴﾗｰ",
-                    "ﾆﾝｼｮｳｷｷ ﾂｶｴﾏｾﾝ",
+                    "[ER] ﾀﾝﾏﾂ ｴﾗｰ",
                     "ｶﾝﾘｼｬﾆ ﾚﾝﾗｸ",
+                    "TERMINAL ERROR",
+                    "please contact admin",
                     sound="device_error",
                 )
             else:
                 await self._notify(
                     TerminalState.AUTH_FAILED,
-                    "[X] ﾆﾝｼｮｳ ｼｯﾊﾟｲ",
-                    "ｶｵ / ｶｰﾄﾞ",
-                    "ﾓｳｲﾁﾄﾞ ｵﾈｶﾞｲｼﾏｽ",
+                    "[NG] ﾆﾝｼｮｳ ｼｯﾊﾟｲ",
+                    "AUTHENTICATION FAILED",
                     sound="auth_failed",
                 )
             await asyncio.sleep(self.result_display_seconds)
@@ -141,8 +140,8 @@ class SessionController:
         await self._notify(
             TerminalState.PROCESSING,
             "[...] ﾆﾝｼｮｳ ﾁｭｳ",
+            "AUTHENTICATING",
             action,
-            "ｼﾊﾞﾗｸ ｵﾏﾁｸﾀﾞｻｲ",
         )
         event = AttendanceEvent.from_authentication(
             result, device_id=self.device_id, event_type=event_type
@@ -153,9 +152,10 @@ class SessionController:
             logging.exception("attendance event was not recorded")
             await self._notify(
                 TerminalState.API_FAILED,
-                "[!] ﾂｳｼﾝ ｴﾗｰ",
-                "ｷﾛｸ ｻﾚﾏｾﾝﾃﾞｼﾀ",
+                "[ER] ﾂｳｼﾝ ｴﾗｰ",
                 "ﾓｳｲﾁﾄﾞ ｵﾈｶﾞｲｼﾏｽ",
+                "NETWORK ERROR",
+                "Please try again",
                 sound="api_failed",
             )
         else:
@@ -163,9 +163,9 @@ class SessionController:
             await self._notify(
                 TerminalState.SUCCESS,
                 "[OK] ｷﾛｸ ｼﾏｼﾀ",
+                "RECORD SUCCESSFUL",
                 str(name),
-                f"{action} ｼﾏｼﾀ",
-                "ｱﾘｶﾞﾄｳｺﾞｻﾞｲﾏｽ",
+                action,
                 sound="success",
             )
         await asyncio.sleep(self.result_display_seconds)
@@ -174,8 +174,8 @@ class SessionController:
         if card is not None:
             await self._notify(
                 TerminalState.COOLDOWN,
-                "[ ] ｶｰﾄﾞｦ ﾊﾅｼﾃｸﾀﾞｻｲ",
-                "ｵﾏﾁｸﾀﾞｻｲ...",
+                "[...] ｶｰﾄﾞｦ ﾊﾅｼﾃｸﾀﾞｻｲ",
+                "Please remove the card",
             )
             await self._run_sync(card.wait_for_removal)
         await self._idle()
@@ -183,10 +183,10 @@ class SessionController:
     async def _idle(self) -> None:
         await self._notify(
             TerminalState.IDLE,
-            "ｽﾏｰﾄ ｹﾞｰﾄ",
+            "== smart gate ==",
             "[ﾆｭｳｼﾂ]  [ﾀｲｼﾂ]",
             "ﾎﾞﾀﾝｦ ｵｼﾃｸﾀﾞｻｲ",
-            "ｼﾞｭﾝﾋﾞ OK",
+            "Please press the button",
         )
 
     def close(self) -> None:
