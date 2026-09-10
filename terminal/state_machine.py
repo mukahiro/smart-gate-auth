@@ -107,10 +107,10 @@ class SessionController:
     async def run_session(self, event_type: EventType) -> None:
         if not self.is_idle:
             return
-        action = "ﾆｭｳｼﾂ" if event_type == "check_in" else "ﾀｲｼﾂ"
+        action = ":ﾆｭｳｼﾂ:" if event_type == "check_in" else ":ﾀｲｼﾂ:"
         await self._notify(
             TerminalState.AUTHENTICATING,
-            "# ACCEPTING #",
+            "[AUTHENTICATING]",
             "ﾆﾝｼｮｳ ｳｹﾂｹﾁｭｳ...",
             action,
             sound="accepted",
@@ -120,7 +120,7 @@ class SessionController:
             if errors == len(self.authenticators):
                 await self._notify(
                     TerminalState.DEVICE_ERROR,
-                    "# ERROR #",
+                    "[ERROR]",
                     "ﾀﾝﾏﾂ ｴﾗｰ",
                     "ｶﾝﾘｼｬﾆ ﾚﾝﾗｸ",
                     sound="device_error",
@@ -128,7 +128,7 @@ class SessionController:
             else:
                 await self._notify(
                     TerminalState.AUTH_FAILED,
-                    "# FAILED #",
+                    "[FAILED]",
                     "ﾆﾝｼｮｳ ｼｯﾊﾟｲ",
                     "ﾓｳｲﾁﾄﾞ ｵﾈｶﾞｲｼﾏｽ",
                     sound="auth_failed",
@@ -139,7 +139,7 @@ class SessionController:
 
         await self._notify(
             TerminalState.PROCESSING,
-            "# PROCESSING #",
+            "[PROCESSING]",
             "ﾆﾝｼｮｳﾁｭｳ...",
             action,
         )
@@ -152,7 +152,7 @@ class SessionController:
             logging.exception("attendance event was not recorded")
             await self._notify(
                 TerminalState.API_FAILED,
-                "# ERROR #",
+                "[ERROR]",
                 "ﾂｳｼﾝ ｴﾗｰ",
                 "ﾓｳｲﾁﾄﾞ ｵﾈｶﾞｲｼﾏｽ",
                 sound="api_failed",
@@ -161,7 +161,7 @@ class SessionController:
             name = response.get("lcdDisplayName") or "ﾒｲｼｮｳ ﾐｾｯﾃｲ"
             await self._notify(
                 TerminalState.SUCCESS,
-                "# SUCCESS #",
+                "[SUCCESS]",
                 "ｷﾛｸ ｼﾏｼﾀ",
                 str(name),
                 action,
@@ -173,7 +173,7 @@ class SessionController:
         if card is not None:
             await self._notify(
                 TerminalState.COOLDOWN,
-                " # MESSAGE # ",
+                "[MESSAGE]",
                 "ｶｰﾄﾞｦ ﾊﾅｼﾃｸﾀﾞｻｲ",
             )
             await self._run_sync(card.wait_for_removal)
@@ -184,7 +184,7 @@ class SessionController:
             TerminalState.IDLE,
             "== smart gate ==",
             " ",
-            "[ﾆｭｳｼﾂ]  [ﾀｲｼﾂ]",
+            ":ﾆｭｳｼﾂ:  :ﾀｲｼﾂ:",
             "ﾎﾞﾀﾝｦ ｵｼﾃｸﾀﾞｻｲ",
         )
 
