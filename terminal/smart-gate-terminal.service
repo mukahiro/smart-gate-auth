@@ -1,0 +1,18 @@
+[Unit]
+Description=Smart Gate integrated authentication terminal
+After=network-online.target pcscd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/smart-gate-auth
+EnvironmentFile=/etc/smart-gate-terminal.env
+ExecStart=/opt/smart-gate-auth/.venv/bin/python -m terminal.app
+Restart=on-failure
+RestartSec=3
+User=smartgate
+Group=smartgate
+
+[Install]
+WantedBy=multi-user.target
+

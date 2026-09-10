@@ -319,3 +319,40 @@ smart-gate-auth/
 - オフライン時も利用者名をLCD表示するためのローカルキャッシュ要否
 - 認証受付中のキャンセル操作
 - 同一人物の連続入室・連続退出を許可するか、API側で警告するか
+
+## 20. 回路設計
+- Pi 5 Pin 1   3.3V   → LCD VCC
+- Pi 5 Pin 3   GPIO2  → LCD SDA
+- Pi 5 Pin 5   GPIO3  → LCD SCL
+- Pi 5 Pin 6   GND    → LCD GND / ボタンGND / ブザーGND
+- Pi 5 Pin 11  GPIO17 → 入室ボタン
+- Pi 5 Pin 13  GPIO27 → 退出ボタン
+- Pi 5 Pin 12  GPIO18 → ブザー
+
+## 21. 実装と起動
+
+統合認証Appは `python -m terminal.app` で起動します。次の環境変数を設定してください。
+
+```bash
+export AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
+export AUTH_API_BASE_URL='http://localhost:3000'
+export AUTH_DEVICE_ID='smart-gate-terminal-01'
+export FACE_AUTH_DB_PATH='face/face.db'
+python -m terminal.app
+```
+
+開発PCでは、GPIOボタンとブザーをコンソールへ置き換えられます。
+
+```bash
+python -m terminal.app --console-buttons --console-hardware
+```
+
+顔またはカードの初期化に失敗した場合は、正常な認証方式だけで縮退運転します。両方が利用できない場合は起動を中止します。LCDは型番と文字コードが未決定のため、現在は `ConsoleLcd` を使用しています。実機LCDのアダプターは `terminal/hardware/lcd.py` の `Display` インターフェースとして追加してください。
+
+systemdの雛形は `terminal/smart-gate-terminal.service` にあります。配置先、実行ユーザー、GPIO・カメラ・PC/SCへのアクセス権を実機に合わせて調整してから使用してください。
+
+ハードウェアを使わない単体テストは次のコマンドで実行します。
+
+```bash
+python -m unittest discover -s terminal/tests -v
+```
