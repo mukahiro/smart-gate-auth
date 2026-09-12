@@ -4,6 +4,8 @@
 
 このディレクトリに単独で起動するアプリはありません。通常はリポジトリ直下から `python -m terminal.app` を実行すると、統合端末が `CardAuthenticator` を読み込みます。
 
+NFC、FeliCa、FCF、PC/SCなどの背景は [カード認証の技術解説](TECHNICAL_GUIDE.md) にまとめています。
+
 ## できること
 
 - RC-S300をPC/SCのDirect Modeで開く
@@ -101,6 +103,7 @@ python -m terminal.app --disable-face
 | ファイル | 役割 |
 | --- | --- |
 | `authenticator.py` | RC-S300の初期化、学生証の検出、学籍番号の読み取り |
+| `TECHNICAL_GUIDE.md` | カード認証で使う技術の解説 |
 
 Python依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
 

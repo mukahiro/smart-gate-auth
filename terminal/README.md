@@ -4,6 +4,8 @@
 
 ユーザーは最初に「入室」または「退出」ボタンを押し、顔をカメラへ向けるか学生証をかざします。顔とカードは同時に受け付け、最初に成功した認証結果だけをAPIへ送信します。
 
+状態機械、非同期処理、GPIO、I2C、PWM、HTTP通信などの背景は [統合認証端末の技術解説](TECHNICAL_GUIDE.md) にまとめています。
+
 ## 利用者の操作
 
 1. LCDに待機画面が表示されていることを確認する。
@@ -214,6 +216,7 @@ journalctl -u smart-gate-terminal -f
 | `hardware/lcd.py` | LCD表示、半角カタカナ変換、スクロール、ログへのフォールバック |
 | `hardware/buzzer.py` | ブザーの鳴動パターン |
 | `smart-gate-terminal.service` | systemd常駐起動の雛形 |
+| `TECHNICAL_GUIDE.md` | 統合端末で使う技術の解説 |
 
 全コンポーネントのPython依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
 

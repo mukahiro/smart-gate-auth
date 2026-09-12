@@ -89,16 +89,19 @@ smart-gate-auth/
 ├── face/
 │   ├── register.py           # 顔画像・埋め込み登録API
 │   ├── authenticator.py      # 統合端末用の顔認証コンポーネント
-│   └── README.md             # 顔認証のセットアップ・運用方法
+│   ├── README.md             # 顔認証のセットアップ・運用方法
+│   └── TECHNICAL_GUIDE.md   # 顔認証の技術解説
 ├── terminal/
 │   ├── app.py                # 統合認証Appのエントリーポイント
 │   ├── state_machine.py      # 認証セッションと状態遷移
 │   ├── attendance_client.py  # 再送しない入退室APIクライアント
 │   ├── hardware/             # ボタン、LCD、ブザーのアダプター
-│   └── README.md             # 統合認証Appの設計・運用方法
+│   ├── README.md             # 統合認証Appの設計・運用方法
+│   └── TECHNICAL_GUIDE.md   # 統合端末の技術解説
 ├── card/
 │   ├── authenticator.py      # 統合端末用のカード認証コンポーネント
-│   └── README.md             # カード認証のセットアップ・運用方法
+│   ├── README.md             # カード認証のセットアップ・運用方法
+│   └── TECHNICAL_GUIDE.md   # カード認証の技術解説
 └── experiments/             # 実験・手動検証用（実装本体には不使用）
 ```
 
