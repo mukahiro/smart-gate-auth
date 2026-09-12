@@ -24,7 +24,7 @@ SQLiteスキーマ:
 
 起動例:
     export FACE_AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
-    uvicorn face_auth_app:app --host 127.0.0.1 --port 8001
+    uvicorn register:app --host 127.0.0.1 --port 8001
 """
 
 import os

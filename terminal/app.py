@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from terminal.attendance_api import AttendanceApi
+from terminal.attendance_client import AttendanceClient
 from terminal.hardware.buttons import ButtonController
 from terminal.hardware.buzzer import ConsoleBuzzer, GpioBuzzer
 from terminal.hardware.lcd import ConsoleLcd, I2cLcd, ResilientDisplay
@@ -20,7 +20,7 @@ from terminal.state_machine import SessionController
 class TerminalApp:
     def __init__(self, args: argparse.Namespace):
         self.args = args
-        self.api = AttendanceApi(args.api_url, args.token, args.api_timeout)
+        self.api = AttendanceClient(args.api_url, args.token, args.api_timeout)
         self.display = ConsoleLcd() if args.console_hardware else self._make_display()
         self.buzzer = ConsoleBuzzer() if args.console_hardware else self._make_buzzer()
         self.authenticators: list[Any] = []
@@ -53,7 +53,7 @@ class TerminalApp:
     def _load_authenticators(self) -> None:
         if not self.args.disable_card:
             try:
-                from card.reader import CardAuthenticator
+                from card.authenticator import CardAuthenticator
 
                 self.authenticators.append(CardAuthenticator())
             except Exception:

@@ -6,7 +6,7 @@
 
 | ファイル | 役割 |
 | --- | --- |
-| `face_auth_app.py` | 顔画像を受け取り、顔埋め込みをSQLiteへ登録するHTTPサーバー |
+| `register.py` | 顔画像を受け取り、顔埋め込みをSQLiteへ登録するHTTP API |
 | `authenticator.py` | 統合認証Appから使用する顔認証コンポーネント |
 | `../experiments/face/face_recognition_app.py` | 現在は使用していない単体顔認証アプリ |
 | `requirements.txt` | 共通のPython依存パッケージ |
@@ -115,7 +115,7 @@ export FACE_AUTH_APP_BEARER_TOKEN="replace-with-a-long-random-secret"
 ```bash
 cd face
 source .venv/bin/activate
-uvicorn face_auth_app:app --host 127.0.0.1 --port 8001
+uvicorn register:app --host 127.0.0.1 --port 8001
 ```
 
 別のマシンから接続させる場合は、ネットワーク構成とファイアウォールを確認したうえで`--host 0.0.0.0`を指定してください。Bearer tokenだけに依存せず、信頼できるネットワークまたはTLS終端の背後で公開してください。

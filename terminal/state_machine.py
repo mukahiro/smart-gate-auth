@@ -9,7 +9,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any, Protocol
 
-from .attendance_api import AttendanceApiError
+from .attendance_client import AttendanceClientError
 from .hardware.buzzer import Buzzer
 from .hardware.lcd import Display
 from .models import AuthenticationResult, AttendanceEvent, EventType, TerminalState
@@ -154,7 +154,7 @@ class SessionController:
         )
         try:
             response = await self._run_sync(self.api.send, event)
-        except AttendanceApiError:
+        except AttendanceClientError:
             logging.exception("attendance event was not recorded")
             await self._notify(
                 TerminalState.API_FAILED,

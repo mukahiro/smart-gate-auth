@@ -14,7 +14,7 @@ Smart Gate Authは、顔認証と学生証によるカード認証を使って�
 - 学籍番号と類似度を含むJSON認証結果の生成
 - 元の登録画像とカメラ画像を保存しないインメモリ処理
 
-顔画像・埋め込み登録サーバーと統合認証App用の顔認証コンポーネントは実装済みで、Raspberry Pi実機で動作確認済みです。セットアップ、登録API、設定、トラブルシューティングは[顔認証のドキュメント](face/face-auth.md)を参照してください。
+顔画像・埋め込み登録サーバーと統合認証App用の顔認証コンポーネントは実装済みで、Raspberry Pi実機で動作確認済みです。セットアップ、登録API、設定、トラブルシューティングは[顔認証のドキュメント](face/README.md)を参照してください。
 
 ### カード認証
 
@@ -70,9 +70,9 @@ APIへ連携する際は、一意な`eventId`、学籍番号、端末ID、入退
 
 | 項目 | 状態 | 主なファイル |
 | --- | --- | --- |
-| 顔画像・埋め込み登録 | HTTPサーバーを実装済み | `face/face_auth_app.py` |
+| 顔画像・埋め込み登録 | HTTPサーバーを実装済み | `face/register.py` |
 | 顔認証 | Raspberry Pi Camera向け統合コンポーネントを実装済み | `face/authenticator.py` |
-| カード認証 | RC-S300向け統合コンポーネントを実装済み | `card/reader.py` |
+| カード認証 | RC-S300向け統合コンポーネントを実装済み | `card/authenticator.py` |
 | 統合認証端末 | ボタン、顔・カード認証、通知、API送信を実装済み | `terminal/app.py` |
 | 入退室API仕様 | 顔・カード共通仕様を定義済み | `api-endpoints.md` |
 
@@ -86,20 +86,20 @@ GPIOボタンで「入室」または「退出」を選択し、顔認証とカ�
 smart-gate-auth/
 ├── README.md
 ├── face/
-│   ├── face_auth_app.py      # 顔画像・埋め込み登録サーバー
+│   ├── register.py           # 顔画像・埋め込み登録API
 │   ├── authenticator.py      # 統合端末用の顔認証コンポーネント
-│   ├── face-auth.md          # 顔認証のセットアップ・運用方法
+│   ├── README.md             # 顔認証のセットアップ・運用方法
 │   └── requirements.txt      # 顔認証のPython依存関係
 ├── terminal/
 │   ├── app.py                # 統合認証Appのエントリーポイント
 │   ├── state_machine.py      # 認証セッションと状態遷移
-│   ├── attendance_api.py     # 再送しないAPIクライアント
+│   ├── attendance_client.py  # 再送しない入退室APIクライアント
 │   ├── hardware/             # ボタン、LCD、ブザーのアダプター
 │   └── README.md             # 統合認証Appの設計・運用方法
 ├── card/
-│   ├── reader.py             # 統合端末用のFCFカード読み取り
+│   ├── authenticator.py      # 統合端末用のカード認証コンポーネント
 │   └── requirements.txt      # カード認証のPython依存関係
-└── experiments/             # 実験・検証用（実装本体には不使用）
+└── experiments/             # 実験・手動検証用（実装本体には不使用）
 ```
 
 ## セキュリティと運用上の注意

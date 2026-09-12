@@ -1,10 +1,10 @@
-# 統合認証App 設計方針
+# 統合認証App
 
 ## 1. 概要
 
 統合認証Appは、Raspberry Pi上で顔認証、FCF学生証によるカード認証、入室・退出ボタン、LCD、圧電ブザー、Smart Gate APIへのイベント送信をまとめて制御する端末アプリケーションです。
 
-本書は実装前の設計方針です。GPIOピン番号、LCDの型番と接続方式、ボタンの個数、ブザーの駆動回路など、実機仕様が確定していない項目は「未決定事項」にまとめます。
+本書は、現在の実装構成、ハードウェア設定、起動方法と運用上の注意をまとめます。
 
 ## 2. 基本方針
 
@@ -74,14 +74,13 @@
 | コンポーネント | 主な責務 |
 | --- | --- |
 | `TerminalApp` | 起動・終了、依存コンポーネントの管理、状態遷移の統括 |
-| `SessionController` | 入退出選択から認証終了までのセッション管理 |
+| `SessionController` | 認証セッション、入退室イベント生成、送信制御 |
 | `ButtonController` | 入室・退出ボタンの監視、チャタリング除去 |
 | `FaceAuthenticator` | カメラ取得、顔検出、埋め込み比較 |
 | `CardAuthenticator` | RC-S300の監視、FCF学籍番号の読み取り |
-| `AttendanceService` | 共通入退室イベントの生成と送信制御 |
-| `AttendanceApi` | Smart Gate APIとのHTTP通信 |
-| `LcdController` | 状態、利用者名、エラーの表示 |
-| `BuzzerController` | 成功、失敗、警告を表す鳴動パターンの再生 |
+| `AttendanceClient` | Smart Gate APIとのHTTP通信 |
+| `I2cLcd` / `ResilientDisplay` | 状態、利用者名、エラーの表示 |
+| `GpioBuzzer` | 成功、失敗、警告を表す鳴動パターンの再生 |
 
 ハードウェア固有処理はインターフェースの背後に分離します。これにより、実機を接続しない開発環境ではLCD、ボタン、ブザーをテスト用実装へ置き換えられます。
 
@@ -261,19 +260,19 @@ smart-gate-auth/
 │   ├── app.py                 # 統合認証Appのエントリーポイント
 │   ├── state_machine.py       # 認証セッションと状態遷移
 │   ├── models.py              # 共通データ型
-│   ├── attendance_api.py      # API通信
+│   ├── attendance_client.py   # 入退室APIクライアント
 │   └── hardware/
 │       ├── buttons.py
 │       ├── lcd.py
 │       └── buzzer.py
 ├── face/
 │   ├── authenticator.py       # 統合Appから利用する顔認証処理
-│   └── enrollment_server.py   # 顔登録HTTPサーバー
+│   └── register.py            # 顔埋め込み登録HTTP API
 └── card/
-    └── reader.py              # FCFカード読み取り
+    └── authenticator.py       # FCFカード認証処理
 ```
 
-ファイル名は実装時に調整できます。既存コードは直ちに削除せず、共通コンポーネントを抽出してから新しいエントリーポイントへ段階的に移行します。
+上記は現在の実装ファイルに対応しています。
 
 ## 17. 実装順序
 
@@ -332,8 +331,8 @@ smart-gate-auth/
 全通知音、または指定した通知音だけを実機で試聴できます。
 
 ```bash
-python -m terminal.buzzer_test all
-python -m terminal.buzzer_test success
+python -m experiments.terminal.buzzer_test all
+python -m experiments.terminal.buzzer_test success
 ```
 
 LCDはI²Cバックパック付きLCD2004（20文字×4行）として実装しています。既定値はI²C bus 1、アドレス`0x27`です。Raspberry PiでI²Cを有効化し、次のコマンドで実アドレスを確認してください。
@@ -355,7 +354,7 @@ python -m terminal.app --lcd-address 0x3f
 
 ```bash
 python -m pip install -r terminal/requirements.txt
-python -m terminal.lcd_test --address 0x27 --seconds 30
+python -m experiments.terminal.lcd_test --address 0x27 --seconds 30
 ```
 
 文字が表示されず黒い四角だけ見える場合は、I²C通信ではなく背面の可変抵抗によるコントラスト調整も確認してください。固定メッセージは英数字へ変換し、APIの`lcdDisplayName`に含まれる半角カタカナはLCD2004の日本語ROMコードへ変換します。
@@ -367,7 +366,7 @@ python -m terminal.lcd_test --address 0x27 --seconds 30
 任意の4行を単体表示してレイアウトを確認できます。
 
 ```bash
-python -m terminal.lcd_test --address 0x27 \
+python -m experiments.terminal.lcd_test --address 0x27 \
   --line1 'ｽﾏｰﾄ ｹﾞｰﾄ' \
   --line2 'ﾑｶｲﾊﾗ ﾋﾛﾄ' \
   --line3 'ﾆｭｳｼﾂ ｼﾏｼﾀ' \
@@ -395,9 +394,3 @@ python -m terminal.app --console-buttons --console-hardware
 顔またはカードの初期化に失敗した場合は、正常な認証方式だけで縮退運転します。両方が利用できない場合は起動を中止します。LCDが起動時または動作中に利用できなくなった場合はログ表示へ切り替え、認証処理を継続します。
 
 systemdの雛形は `terminal/smart-gate-terminal.service` にあります。配置先、実行ユーザー、GPIO・カメラ・PC/SCへのアクセス権を実機に合わせて調整してから使用してください。
-
-ハードウェアを使わない単体テストは次のコマンドで実行します。
-
-```bash
-python -m unittest discover -s terminal/tests -v
-```
