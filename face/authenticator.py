@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Raspberry Pi Cameraの顔を登録済み顔埋め込みと照合する。"""
 
+import os
 import sqlite3
 import threading
 import time
@@ -148,7 +149,71 @@ class FaceAuthenticator:
             finally:
                 camera.close()
 
+    def wait_for_face_absence(
+        self,
+        timeout: float | None = 10.0,
+        consecutive_frames: int = 3,
+    ) -> None:
+        """顔のないフレームが連続するか、指定時間に達するまで待つ。"""
+        if consecutive_frames <= 0:
+            raise ValueError("consecutive_frames must be positive")
+
+        # 一時的な検出漏れを「顔が外れた」と判定しないよう、複数フレーム連続の未検出を求める。
+        camera = self._open_camera()
+        empty_frames = 0
+        deadline = None if timeout is None else time.monotonic() + timeout
+        try:
+            while deadline is None or time.monotonic() < deadline:
+                faces = self._analyzer.get(camera.capture_array("main"))
+                if faces:
+                    empty_frames = 0
+                else:
+                    empty_frames += 1
+                    if empty_frames >= consecutive_frames:
+                        return
+                time.sleep(self._interval)
+        finally:
+            # 待機の終了理由にかかわらず、カメラを次の認証で使える状態に戻す。
+            try:
+                camera.stop()
+            finally:
+                camera.close()
+
     def close(self) -> None:
         """保持している顔認証モデルへの参照を解放する。"""
         # FaceAnalysisに明示的なclose APIがないため、参照を外してPythonのリソース解放に任せる。
         self._analyzer = None
+
+
+def main() -> None:
+    """顔を繰り返し認証し、学籍番号だけをコンソールに表示する。"""
+    # 登録APIや統合端末と同じ環境変数を使い、単体実行でもモデルとDBを一致させる。
+    authenticator = FaceAuthenticator(
+        Path(os.getenv("FACE_AUTH_DB_PATH", "face/face.db")),
+        model_name=os.getenv("FACE_AUTH_MODEL_NAME", "buffalo_sc"),
+        threshold=float(os.getenv("FACE_AUTH_THRESHOLD", "0.5")),
+    )
+    cancel = threading.Event()
+    prompt = "カメラに顔を向けてください"
+
+    try:
+        print(f"{prompt}（Ctrl+Cで終了）", flush=True)
+        while True:
+            # 単体モードは操作されるまで待つため、認証の制限時間を設けない。
+            result = authenticator.authenticate(timeout=float("inf"), cancel=cancel)
+            if result is None:
+                continue
+
+            print(f"学籍番号: {result.student_number}", flush=True)
+            # 同じ人を繰り返し表示しないよう、顔が画面から外れてから次の認証を始める。
+            authenticator.wait_for_face_absence(timeout=None)
+            print(prompt, flush=True)
+    except KeyboardInterrupt:
+        print("\n終了します。", flush=True)
+    finally:
+        # 通常終了とCtrl+Cのどちらでも、顔認証モデルへの参照を解放する。
+        authenticator.close()
+
+
+if __name__ == "__main__":
+    main()

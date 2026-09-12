@@ -11,7 +11,7 @@
 | ファイル | 役割 | 起動方法 |
 | --- | --- | --- |
 | `register.py` | 顔画像から埋め込みを作成し、`face.db` へ登録するHTTP API | Uvicornで別プロセスとして起動 |
-| `authenticator.py` | カメラ映像と `face.db` を照合する | `terminal.app` が自動で読み込む |
+| `authenticator.py` | カメラ映像と `face.db` を照合する | 単体起動、または `terminal.app` が読み込む |
 
 ```text
 管理者が顔画像を送信
@@ -114,6 +114,21 @@ curl -i -X PUT http://127.0.0.1:8001/ \
 - 1枚でも不正ならDBは更新されない
 - 同じ学籍番号を再登録すると、従来の埋め込みをすべて置き換える
 
+## 顔認証を単体で起動する
+
+登録済みの `face.db` がある状態で、リポジトリ直下から起動します。
+
+```bash
+export FACE_AUTH_DB_PATH='face/face.db'
+export FACE_AUTH_MODEL_NAME='buffalo_sc'
+export FACE_AUTH_THRESHOLD='0.5'
+python -m face.authenticator
+```
+
+起動後は顔が映るまで待機し、認証に成功すると `学籍番号: 1234567890` の形式でコンソールへ表示します。同じ顔を繰り返し表示しないよう、顔がカメラから外れた後に次の認証を始めます。終了するには `Ctrl+C` を押してください。
+
+この単体モードは結果の表示だけを行います。認証APIへの送信、入退室の判定、履歴の保存は行いません。
+
 ## 統合端末で顔認証を使う
 
 `face.db` に1人以上を登録したうえで、リポジトリ直下から統合端末を起動します。
@@ -177,10 +192,10 @@ rpicam-hello --list-cameras
 | ファイル | 役割 |
 | --- | --- |
 | `register.py` | 顔埋め込み登録HTTP API |
-| `authenticator.py` | 統合端末用の顔認証コンポーネント |
+| `authenticator.py` | 単体起動と統合端末の両方で使う顔認証コンポーネント |
 | `TECHNICAL_GUIDE.md` | 顔認証で使う技術の解説 |
 | `face.db` | 学籍番号と顔埋め込みを保存するDB（Git管理外） |
 
 全コンポーネントのPython依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
 
-単体顔認証アプリと評価スクリプトは `experiments/face/` に分離されています。
+評価用など本実装で使わないスクリプトは `experiments/face/` に分離されています。
