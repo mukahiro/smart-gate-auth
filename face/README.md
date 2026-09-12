@@ -193,3 +193,10 @@ rpicam-hello --list-cameras
 全コンポーネントのPython依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
 
 評価用など本実装で使わないスクリプトは `experiments/face/` に分離されています。
+
+## 関連資料
+
+- [顔認証の登録・運用手順](README.md)
+- [統合認証端末の技術解説](../terminal/TECHNICAL_GUIDE.md)
+- `experiments/face/`: 顔認証の評価スクリプトと過去の試行
+- `https://www.kkaneko.jp/ai/labo/insightfacetext.html`: Insight Face の参考資料

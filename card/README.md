@@ -122,3 +122,9 @@ python -m terminal.app --disable-face
 Python依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
 
 旧単体アプリと参考実装は `experiments/card/` に分離されています。
+
+## 関連資料
+
+- [カード認証のセットアップと運用](README.md)
+- [RC-S300によるFCF読み取りの詳細](../experiments/card/fcf-card-reading.md)
+- [統合認証端末の技術解説](../terminal/TECHNICAL_GUIDE.md)

@@ -224,3 +224,9 @@ journalctl -u smart-gate-terminal -f
 全コンポーネントのPython依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
 
 送信ペイロードは `terminal/models.py` の `AttendanceEvent.payload()`、必要なAPIレスポンスは `terminal/attendance_client.py` で確認できます。
+
+## 関連資料
+
+- [統合認証端末の設置と運用](README.md)
+- [顔認証の技術解説](../face/TECHNICAL_GUIDE.md)
+- [カード認証の技術解説](../card/TECHNICAL_GUIDE.md)
