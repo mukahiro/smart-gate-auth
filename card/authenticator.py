@@ -142,10 +142,11 @@ class CardAuthenticator:
             cancel.wait(self._poll_interval)
         return None
 
-    def wait_for_removal(self, timeout: float = 10.0) -> None:
-        """カードが取り外されるか、制限時間に達するまで待つ。"""
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
+    def wait_for_removal(self, timeout: float | None = 10.0) -> None:
+        """カードが取り外されるか、指定時間に達するまで待つ。"""
+        # Noneは単体実行でカードを離すまで待つ場合に使い、数値なら待機の上限とする。
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while deadline is None or time.monotonic() < deadline:
             if poll_fcf(self._connection, self._escape_code) is None:
                 return
             time.sleep(self._poll_interval)
@@ -160,3 +161,40 @@ class CardAuthenticator:
             self._connection.control(self._escape_code, END_SESSION)
         finally:
             self._connection.disconnect()
+
+
+def main() -> None:
+    """学生証を繰り返し読み取り、学籍番号だけをコンソールに表示する。"""
+    # 統合端末と同じ読み取りクラスを使い、APIや入退室処理には接続しない。
+    authenticator = CardAuthenticator()
+    cancel = threading.Event()
+    prompt = "学生証をかざしてください"
+
+    try:
+        print(f"{prompt}（Ctrl+Cで終了）", flush=True)
+        while True:
+            # 短い制限時間で待機を繰り返し、カードがない間も終了操作を受け付ける。
+            try:
+                result = authenticator.authenticate(timeout=1.0, cancel=cancel)
+            except CardReadError as exc:
+                # 形式の異なるカードでプログラムを終了せず、取り外し後に次の読み取りへ戻る。
+                print(f"カードを読み取れませんでした: {exc}", flush=True)
+                authenticator.wait_for_removal(timeout=None)
+                print(prompt, flush=True)
+                continue
+            if result is None:
+                continue
+
+            print(f"学籍番号: {result.student_number}", flush=True)
+            # 同じカードを繰り返し表示しないよう、取り外し後に次の受付を始める。
+            authenticator.wait_for_removal(timeout=None)
+            print(prompt, flush=True)
+    except KeyboardInterrupt:
+        print("\n終了します。", flush=True)
+    finally:
+        # 通常終了とCtrl+Cのどちらでも、RC-S300のセッションを確実に閉じる。
+        authenticator.close()
+
+
+if __name__ == "__main__":
+    main()

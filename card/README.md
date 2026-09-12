@@ -1,8 +1,8 @@
 # カード認証
 
-`card/` は、SONY PaSoRi RC-S300でFCF準拠学生証を読み取り、10桁の学籍番号を統合認証端末へ渡すコンポーネントです。
+`card/` は、SONY PaSoRi RC-S300でFCF準拠学生証を読み取り、10桁の学籍番号を取得するプログラムです。
 
-このディレクトリに単独で起動するアプリはありません。通常はリポジトリ直下から `python -m terminal.app` を実行すると、統合端末が `CardAuthenticator` を読み込みます。
+`CardAuthenticator` は統合端末から利用できるほか、カード単体で起動し、読み取った学籍番号をコンソールで確認できます。
 
 NFC、FeliCa、FCF、PC/SCなどの背景は [カード認証の技術解説](TECHNICAL_GUIDE.md) にまとめています。
 
@@ -64,6 +64,20 @@ sudo systemctl restart pcscd
 
 ## 起動方法
 
+### カード単体で起動する
+
+リポジトリ直下から次のコマンドを実行します。
+
+```bash
+python -m card.authenticator
+```
+
+起動後は学生証の読み取りを待ち、成功すると `学籍番号: 1234567890` の形式で表示します。カードを取り外すと次の読み取りに戻り、`Ctrl+C` で終了します。
+
+単体実行では、入室・退出の判定、API送信、履歴保存は行いません。
+
+### 統合端末で使う
+
 カード認証を含む統合端末の起動方法です。APIのBearer tokenは必須です。
 
 ```bash
@@ -102,7 +116,7 @@ python -m terminal.app --disable-face
 
 | ファイル | 役割 |
 | --- | --- |
-| `authenticator.py` | RC-S300の初期化、学生証の検出、学籍番号の読み取り |
+| `authenticator.py` | RC-S300の初期化、学生証の読み取り、単体起動用の `main()` |
 | `TECHNICAL_GUIDE.md` | カード認証で使う技術の解説 |
 
 Python依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
