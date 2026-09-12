@@ -11,7 +11,7 @@ Smart Gate Authは、顔認証と学生証によるカード認証を使って�
 - Bearer認証付きHTTP APIによる顔埋め込みの登録・一括置換
 - Picamera2/libcameraを使ったカメラ画像からの顔検出
 - 登録済み利用者とのコサイン類似度による顔照合
-- 学籍番号と類似度を含むJSON認証結果の生成
+- 学籍番号と類似度を含む認証結果の生成
 - 元の登録画像とカメラ画像を保存しないインメモリ処理
 
 顔画像・埋め込み登録サーバーと統合認証App用の顔認証コンポーネントは実装済みで、Raspberry Pi実機で動作確認済みです。セットアップ、登録API、設定、トラブルシューティングは[顔認証のドキュメント](face/README.md)を参照してください。
@@ -25,7 +25,7 @@ SONY PaSoRi RC-S300を使い、FCF準拠学生証のFCF基本情報から10桁�
 - 入室・退出イベントの生成
 - 同じカードを置いたままにした場合の重複読み取り防止
 
-端末のセットアップと実行方法は[統合認証Appのドキュメント](terminal/README.md)、カード通信仕様は[FCF読み取り仕様](card/fcf-card-reading.md)を参照してください。
+カードリーダーのセットアップと通信方法は[カード認証のドキュメント](card/README.md)、端末全体の実行方法は[統合認証端末のドキュメント](terminal/README.md)を参照してください。
 
 ## API連携
 
@@ -44,7 +44,7 @@ Content-Type: application/json
 | 顔認証 | `face` | `confidence`が必須 |
 | カード認証 | `card` | FCFから取得した学籍番号を使用 |
 
-APIへ連携する際は、一意な`eventId`、学籍番号、端末ID、入退室種別、認証日時を送信します。同じ`eventId`を再送してもAPI側では二重登録されません。詳細は[API仕様](api-endpoints.md)を参照してください。
+APIへ連携する際は、一意な`eventId`、学籍番号、端末ID、入退室種別、認証日時を送信します。同じ`eventId`を再送してもAPI側では二重登録されません。
 
 ## 全体構成
 
@@ -74,7 +74,6 @@ APIへ連携する際は、一意な`eventId`、学籍番号、端末ID、入退
 | 顔認証 | Raspberry Pi Camera向け統合コンポーネントを実装済み | `face/authenticator.py` |
 | カード認証 | RC-S300向け統合コンポーネントを実装済み | `card/authenticator.py` |
 | 統合認証端末 | ボタン、顔・カード認証、通知、API送信を実装済み | `terminal/app.py` |
-| 入退室API仕様 | 顔・カード共通仕様を定義済み | `api-endpoints.md` |
 
 ## 統合認証端末
 
@@ -98,6 +97,7 @@ smart-gate-auth/
 │   └── README.md             # 統合認証Appの設計・運用方法
 ├── card/
 │   ├── authenticator.py      # 統合端末用のカード認証コンポーネント
+│   ├── README.md             # カード認証のセットアップ・運用方法
 │   └── requirements.txt      # カード認証のPython依存関係
 └── experiments/             # 実験・手動検証用（実装本体には不使用）
 ```

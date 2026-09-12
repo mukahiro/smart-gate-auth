@@ -1,124 +1,86 @@
-# 顔認証アプリ
+# 顔認証
 
-顔画像から顔埋め込み（Embedding）を登録するHTTPサーバーと、統合認証Appで登録済みの顔を照合するコンポーネントのセットアップ・運用方法です。
+`face/` は、利用者の顔情報を登録するHTTP APIと、Raspberry Pi Cameraの映像から利用者を識別する認証コンポーネントを提供します。
 
-## 構成
+顔画像そのものは保存しません。顔の特徴を数値化した「顔埋め込み」と学籍番号をSQLiteの `face.db` に保存します。このデータも生体情報として厳重に管理してください。
 
-| ファイル | 役割 |
-| --- | --- |
-| `register.py` | 顔画像を受け取り、顔埋め込みをSQLiteへ登録するHTTP API |
-| `authenticator.py` | 統合認証Appから使用する顔認証コンポーネント |
-| `../experiments/face/face_recognition_app.py` | 現在は使用していない単体顔認証アプリ |
-| `requirements.txt` | 共通のPython依存パッケージ |
-| `face.db` | 顔埋め込みを保存するSQLite DB（登録サーバー起動時に作成、Git管理外） |
+## 2つの役割
 
-登録サーバーと統合端末の顔認証コンポーネントはInsightFaceの同じモデルを使用し、L2正規化した埋め込みを`face_embeddings`テーブルで共有します。別のマシンで動かす場合は、同じ内容の`face.db`を認証端末へ安全に配布する仕組みが別途必要です。
+| ファイル | 役割 | 起動方法 |
+| --- | --- | --- |
+| `register.py` | 顔画像から埋め込みを作成し、`face.db` へ登録するHTTP API | Uvicornで別プロセスとして起動 |
+| `authenticator.py` | カメラ映像と `face.db` を照合する | `terminal.app` が自動で読み込む |
 
 ```text
-顔画像（1～10枚）
-  -> 登録サーバー
-  -> 顔検出・埋め込み抽出
-  -> face.db
-  -> Raspberry Pi顔認証アプリ
-  -> カメラ映像とのコサイン類似度を計算
-  -> JSON形式の認証結果
+管理者が顔画像を送信
+  → register.py
+  → 顔検出・埋め込み生成
+  → face.db
+  → authenticator.pyが読み込む
+  → Raspberry Pi Cameraの映像と照合
+  → 学籍番号と類似度を統合端末へ返す
 ```
 
-## 動作仕様
+## 必要なもの
 
-### 顔画像・埋め込み登録サーバー
-
-- `PUT /`をBearer認証で保護
-- 学籍番号は半角数字10桁
-- 1回に1～10枚、各10 MiB以下の`image/*`を受付
-- 各画像に顔が1人だけ写っている場合に登録
-- 全画像の検証と抽出が成功した場合だけ、対象学生の既存埋め込みを一括置換
-- 受信した元画像は保存しない
-- `GET /health`で稼働確認が可能（認証不要）
-
-### 顔認証アプリ
-
-- 起動時に`face.db`の全埋め込みを読み込み
-- Picamera2/libcamera経由でRaspberry Pi Cameraを使用
-- 顔が1人だけ写っているフレームを一定間隔で照合
-- 全登録埋め込みとのコサイン類似度から最大値を選択
-- 最大類似度が閾値以上なら、学籍番号と類似度を標準出力へJSONで出力
-- 認証されないまま指定時間が過ぎるとタイムアウト結果を出力
-- カメラ画像は保存しない
-
-現在の運用では`face/authenticator.py`を統合認証Appが呼び出し、認証結果を共通の入退室イベントに変換してAPIへ送信します。
-
-## 必要環境
-
-### 登録サーバー
+### 顔登録API
 
 - Python 3.10以降
-- InsightFaceモデルを初回取得できるネットワーク接続
-- CPU実行に必要な空きメモリとストレージ
+- InsightFace / ONNX Runtimeが動作するLinuxマシン
+- InsightFaceモデルの初回取得時のネットワーク接続
 
 ### 顔認証端末
 
-- Raspberry Pi 5
-- Raspberry Pi OS
+- Raspberry Pi 5 / Raspberry Pi OS
 - Raspberry Pi Camera
-- Python 3.10以降
-- Picamera2/libcamera
-- 登録済みの`face.db`
-- InsightFaceモデルを初回取得できるネットワーク接続
+- Picamera2 / libcamera
+- 登録済みの `face.db`
 
 ## セットアップ
 
-Raspberry Piで登録サーバーと顔認証アプリの両方を動かす例です。Picamera2はRaspberry Pi OSのパッケージを使用するため、仮想環境からシステムパッケージを参照できるようにします。
+Raspberry Pi上で顔登録APIと顔認証の両方を使う例です。Picamera2はOSのパッケージを使うため、仮想環境からシステムパッケージを参照できるようにします。
 
 ```bash
 sudo apt update
 sudo apt install python3-picamera2 python3-venv
 
-cd face
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r face/requirements.txt
+python -m pip install -r terminal/requirements.txt
 ```
 
-初回起動時はInsightFaceが指定モデルをダウンロードするため、通常より時間がかかります。
+初回起動時はInsightFaceがモデルを取得するため、時間がかかることがあります。
 
-登録サーバーだけをカメラのないLinuxマシンで動かす場合は、通常の仮想環境でも構いません。
-
-```bash
-cd face
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## 顔画像の登録
+## 顔を登録する
 
 ### 1. 設定
 
-十分に長いランダムなBearer tokenを環境変数へ設定します。
-
 ```bash
-export FACE_AUTH_APP_BEARER_TOKEN="replace-with-a-long-random-secret"
+export FACE_AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
+export FACE_AUTH_DB_PATH='face/face.db'
+export FACE_AUTH_MODEL_NAME='buffalo_sc'
+export FACE_AUTH_DET_SIZE='320'
 ```
 
 | 環境変数 | 必須 | デフォルト | 説明 |
 | --- | --- | --- | --- |
-| `FACE_AUTH_APP_BEARER_TOKEN` | 必須 | なし | `PUT /`を保護するBearer token |
-| `FACE_AUTH_DB_PATH` | 任意 | `./face.db` | 顔埋め込み用SQLite DB |
-| `FACE_AUTH_MODEL_NAME` | 任意 | `buffalo_sc` | InsightFaceモデル名 |
+| `FACE_AUTH_APP_BEARER_TOKEN` | 必須 | なし | 登録APIを保護するBearer token |
+| `FACE_AUTH_DB_PATH` | 任意 | `./face.db` | 顔埋め込みDBの保存先 |
+| `FACE_AUTH_MODEL_NAME` | 任意 | `buffalo_sc` | InsightFaceのモデル名 |
 | `FACE_AUTH_DET_SIZE` | 任意 | `320` | 顔検出器の入力サイズ |
 
-相対パスは起動時のカレントディレクトリを基準に解決されます。以下の例では`face/face.db`が作成されます。
+登録と認証では必ず同じ `FACE_AUTH_MODEL_NAME` を使ってください。異なるモデルで作った埋め込みは比較できません。
 
-### 2. 起動
+### 2. APIを起動
+
+リポジトリ直下から起動します。上の例のように `FACE_AUTH_DB_PATH=face/face.db` を設定すると、統合端末と同じDBを使用できます。未設定時の登録APIは、カレントディレクトリの `face.db` を使用します。
 
 ```bash
-cd face
-source .venv/bin/activate
-uvicorn register:app --host 127.0.0.1 --port 8001
+uvicorn face.register:app --host 127.0.0.1 --port 8001
 ```
 
-別のマシンから接続させる場合は、ネットワーク構成とファイアウォールを確認したうえで`--host 0.0.0.0`を指定してください。Bearer tokenだけに依存せず、信頼できるネットワークまたはTLS終端の背後で公開してください。
+別のマシンから接続する場合は、ファイアウォールやTLS終端を用意したうえで `--host 0.0.0.0` を指定します。登録APIをインターネットへ直接公開しないでください。
 
 ### 3. 稼働確認
 
@@ -130,9 +92,9 @@ curl http://127.0.0.1:8001/health
 {"status":"ok"}
 ```
 
-### 4. 顔画像を登録
+### 4. 画像を登録
 
-同じ人物について、正面、左右への軽い顔向き、眼鏡の有無など条件を少し変えた鮮明な画像を3～5枚用意することを推奨します。各画像には登録対象者だけが写るようにしてください。
+同じ人物の正面、左右への軽い顔向き、眼鏡の有無など、条件を少し変えた鮮明な画像を3～5枚用意することを推奨します。各画像には登録対象者だけが写るようにしてください。
 
 ```bash
 curl -i -X PUT http://127.0.0.1:8001/ \
@@ -143,128 +105,79 @@ curl -i -X PUT http://127.0.0.1:8001/ \
   -F "images=@right.jpg;type=image/jpeg"
 ```
 
-成功時は`204 No Content`です。同じ学籍番号を再登録すると、その学生の既存埋め込みは今回送信した画像の埋め込みへすべて置き換わります。画像が1枚でも不正な場合は、その学生の登録内容を変更しません。
+- `studentNumber` は半角数字10桁
+- `images` は1～10ファイル
+- 1ファイルの上限は10 MiB
+- 画像内の顔は1人だけ
+- 成功時は `204 No Content`
+- 1枚でも不正ならDBは更新されない
+- 同じ学籍番号を再登録すると、従来の埋め込みをすべて置き換える
 
-## Raspberry Piで顔認証を実行
+## 統合端末で顔認証を使う
 
-### 1. カメラ確認
+`face.db` に1人以上を登録したうえで、リポジトリ直下から統合端末を起動します。
 
-Raspberry Pi Cameraが認識され、他のプロセスに使用されていないことを確認します。
+```bash
+export AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
+export FACE_AUTH_DB_PATH='face/face.db'
+export FACE_AUTH_MODEL_NAME='buffalo_sc'
+export FACE_AUTH_THRESHOLD='0.5'
+python -m terminal.app
+```
+
+カード認証を使わず、顔認証だけで起動する場合は `--disable-card` を付けます。
+
+`FaceAuthenticator` は起動時に埋め込みDBを読み、認証受付中だけカメラを開きます。画面内に顔が1人だけあり、登録済み埋め込みとの類似度が閾値以上になると認証成功です。
+
+端末の設定と操作方法は [統合認証端末](../terminal/README.md) を参照してください。
+
+## データベースの扱い
+
+`face.db` には学籍番号と顔埋め込みが保存されます。登録APIと認証端末を別のマシンで実行する場合は、更新済みDBを安全に端末へ配布する仕組みが必要です。
+
+認証端末は各認証の開始時にDBの更新時刻を確認し、変更されていれば再読み込みします。
+
+## トラブルシューティング
+
+### 登録APIが起動しない
+
+- `FACE_AUTH_APP_BEARER_TOKEN` が空でないか確認する
+- 初回モデル取得用のネットワーク接続を確認する
+- `FACE_AUTH_DB_PATH` の親ディレクトリへ書き込めるか確認する
+
+### カメラが見つからない
 
 ```bash
 rpicam-hello --list-cameras
 ```
 
-### 2. 設定
+カメラの接続、ケーブルの向き、別プロセスが使用中でないかを確認してください。
 
-| 環境変数 | デフォルト | 対応する引数 | 説明 |
-| --- | --- | --- | --- |
-| `FACE_AUTH_DB_PATH` | `./face.db` | `--db` | 顔埋め込み用SQLite DB |
-| `FACE_AUTH_MODEL_NAME` | `buffalo_sc` | `--model` | InsightFaceモデル名 |
-| `FACE_AUTH_DET_SIZE` | `320` | `--det-size` | 顔検出器の入力サイズ |
-| `FACE_AUTH_THRESHOLD` | `0.5` | `--threshold` | 認証成功とするコサイン類似度の閾値 |
-| `FACE_AUTH_DURATION_SECONDS` | `8` | `--duration` | 1回の認証受付時間（秒） |
-| `FACE_AUTH_INFERENCE_INTERVAL_SECONDS` | `0.3` | `--interval` | 推論間隔の最小値（秒） |
-| `FACE_AUTH_CAMERA_INDEX` | `0` | `--camera` | Picamera2のカメラインデックス |
-| `FACE_AUTH_CAMERA_WIDTH` | `640` | `--width` | 取得画像の幅 |
-| `FACE_AUTH_CAMERA_HEIGHT` | `480` | `--height` | 取得画像の高さ |
+### 顔が認証されない
 
-登録時と認証時は`FACE_AUTH_MODEL_NAME`を必ず同じ値にしてください。モデルが異なると埋め込みの比較が成立しません。顔の検出条件もそろえる場合は`FACE_AUTH_DET_SIZE`も同じ値にします。
+- カメラに顔を向け、画面内に1人だけが写るようにする
+- 顔全体が映り、照明が明るく均一になるようにする
+- 登録時と認証時のモデル名を一致させる
+- 登録DBのパスと登録件数を確認する
+- 実機で評価したうえで類似度閾値を調整する
 
-### 3. 実行
+閾値を下げると本人を受け入れやすくなる一方、他人を誤って受け入れる危険も高まります。運用環境で評価してから決定してください。
 
-単体顔認証アプリは現在の実装からは呼び出されず、`experiments/face/`に保管しています。参考用に実行する場合は、登録サーバーと同じ`face/face.db`を使います。
+## セキュリティ
 
-```bash
-cd face
-source .venv/bin/activate
-python3 ../experiments/face/face_recognition_app.py
-```
-
-引数で設定を変更する例です。
-
-```bash
-python3 ../experiments/face/face_recognition_app.py \
-  --db ./face.db \
-  --duration 8 \
-  --threshold 0.5 \
-  --camera 0 \
-  --width 640 \
-  --height 480
-```
-
-機械可読な最終結果は標準出力へ1行で出力されます。進捗とエラーは標準エラー出力へ出力されます。
-
-認証成功:
-
-```json
-{"authenticated":true,"studentNumber":"1234567890","similarity":0.812}
-```
-
-タイムアウト:
-
-```json
-{"authenticated":false,"reason":"timeout"}
-```
-
-`Ctrl+C`による中断は`cancelled`、設定・DB・カメラなどのエラーは`application_error`です。認証成功、タイムアウト、中断の終了コードは`0`、アプリケーションエラーは`1`です。
-
-## データベース
-
-登録サーバーが次のテーブルとインデックスを自動作成します。
-
-```sql
-CREATE TABLE face_embeddings (
-    student_number TEXT NOT NULL
-        CHECK (
-            length(student_number) = 10
-            AND student_number NOT GLOB '*[^0-9]*'
-        ),
-    embedding BLOB NOT NULL
-);
-
-CREATE INDEX idx_face_embeddings_student_number
-ON face_embeddings(student_number);
-```
-
-埋め込みはL2正規化済みの`float32`配列をBLOBとして保存します。SQLite DBには学籍番号と生体情報に相当する顔埋め込みが含まれるため、アクセス権限、バックアップ、転送、廃棄を適切に管理してください。
-
-## トラブルシューティング
-
-### `FACE_AUTH_APP_BEARER_TOKEN is not set`
-
-登録サーバーの起動前に`FACE_AUTH_APP_BEARER_TOKEN`を設定してください。空のtokenでは起動しません。
-
-### `Picamera2 is not available`
-
-`python3-picamera2`をインストールし、`--system-site-packages`付きで作成した仮想環境を使用してください。
-
-### `No Raspberry Pi camera was detected`
-
-- カメラの接続とケーブルの向きを確認する
-- `rpicam-hello --list-cameras`で認識状態を確認する
-- カメラを使用中の別プロセスを終了する
-- 必要に応じてRaspberry Piを再起動する
-
-### `No face embeddings are registered`
-
-認証アプリが参照している`face.db`に登録データがありません。登録サーバーで顔画像を登録し、両アプリの`FACE_AUTH_DB_PATH`が同じDBを指していることを確認してください。
-
-### 顔が認識されない
-
-- 画面内に1人だけが写っているか確認する
-- 顔をカメラへ向け、照明を明るく均一にする
-- 登録時と認証時のモデル設定を一致させる
-- 実機環境で評価したうえで閾値を調整する
-- 顔向きや眼鏡などの条件を変えた登録画像を追加する
-
-閾値を下げると本人を受け入れやすくなる一方、他人を誤って受け入れる危険も高まります。運用環境の照明、距離、カメラで本人受入率と他人受入率を確認してから決定してください。
-
-## セキュリティ上の注意
-
-- Bearer tokenをソースコードやGitへコミットしない
+- Bearer tokenをソースコードやGitへ保存しない
 - 登録APIをインターネットへ直接公開しない
-- `face.db`を必要なプロセスと管理者だけが読める権限にする
+- `face.db` は必要なプロセスと管理者だけが読み書きできるようにする
 - 顔画像をクライアントやリバースプロキシのログへ残さない
-- 不要になった埋め込みを確実に削除できる運用を用意する
-- 写真によるなりすましを防ぐ必要がある場合は、別途ライブネス検知や追加認証を導入する
+- 写真によるなりすまし対策が必要な場合は、ライブネス検知または追加認証を導入する
+
+## ファイル
+
+| ファイル | 役割 |
+| --- | --- |
+| `register.py` | 顔埋め込み登録HTTP API |
+| `authenticator.py` | 統合端末用の顔認証コンポーネント |
+| `requirements.txt` | Python依存パッケージ |
+| `face.db` | 学籍番号と顔埋め込みを保存するDB（Git管理外） |
+
+単体顔認証アプリと評価スクリプトは `experiments/face/` に分離されています。

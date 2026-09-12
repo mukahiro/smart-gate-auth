@@ -79,7 +79,7 @@ grep -A1 ifdDriverOptions /etc/libccid_Info.plist
 sudo systemctl restart pcscd
 ```
 
-必要に応じてRC-S300をUSBから抜き差ししてください。FeliCaコマンドやFCF領域の詳細は[FCF読み取り仕様](../../card/fcf-card-reading.md)を参照してください。
+必要に応じてRC-S300をUSBから抜き差ししてください。FeliCaコマンドやFCF領域の詳細は[FCF読み取り仕様](fcf-card-reading.md)を参照してください。
 
 ## 設定
 
@@ -161,7 +161,7 @@ python3 experiments/card/card-auth.py --help
 }
 ```
 
-API仕様の詳細は[API仕様](../../api-endpoints.md)を参照してください。
+APIペイロードの参考例はリポジトリ直下の `README.md` を参照してください。
 
 ## 入退室状態と再送
 
@@ -228,7 +228,7 @@ pip install -r card/requirements.txt
 | --- | --- |
 | `card-auth.py` | FCF学生証読み取り・API送信アプリ |
 | `../../card/requirements.txt` | Python依存パッケージ |
-| `../../card/fcf-card-reading.md` | RC-S300とFCFの通信仕様 |
+| `fcf-card-reading.md` | RC-S300とFCFの通信仕様 |
 | `fcf-card-reading.py` | FCF読み取りの参考実装 |
 
 ## 注意事項
