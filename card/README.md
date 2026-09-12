@@ -39,7 +39,7 @@ Ubuntu / Raspberry Pi OSでのセットアップ例です。
 sudo apt update
 sudo apt install pcscd pcsc-tools libccid libpcsclite-dev swig python3-dev
 sudo systemctl enable --now pcscd
-python -m pip install -r card/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 `pcsc_scan` を実行し、`SONY FeliCa RC-S300/P` が表示されることを確認してください。
@@ -101,6 +101,7 @@ python -m terminal.app --disable-face
 | ファイル | 役割 |
 | --- | --- |
 | `authenticator.py` | RC-S300の初期化、学生証の検出、学籍番号の読み取り |
-| `requirements.txt` | Python依存パッケージ |
+
+Python依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
 
 旧単体アプリと参考実装は `experiments/card/` に分離されています。

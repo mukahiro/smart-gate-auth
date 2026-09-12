@@ -42,12 +42,11 @@ Raspberry Pi上で顔登録APIと顔認証の両方を使う例です。Picamera
 
 ```bash
 sudo apt update
-sudo apt install python3-picamera2 python3-venv
+sudo apt install python3-picamera2 python3-venv libpcsclite-dev swig python3-dev
 
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
-python -m pip install -r face/requirements.txt
-python -m pip install -r terminal/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 初回起動時はInsightFaceがモデルを取得するため、時間がかかることがあります。
@@ -177,7 +176,8 @@ rpicam-hello --list-cameras
 | --- | --- |
 | `register.py` | 顔埋め込み登録HTTP API |
 | `authenticator.py` | 統合端末用の顔認証コンポーネント |
-| `requirements.txt` | Python依存パッケージ |
 | `face.db` | 学籍番号と顔埋め込みを保存するDB（Git管理外） |
+
+全コンポーネントのPython依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
 
 単体顔認証アプリと評価スクリプトは `experiments/face/` に分離されています。

@@ -13,3 +13,5 @@ __pycache__/
 *output*
 
 *.db
+*.db-shm
+*.db-wal

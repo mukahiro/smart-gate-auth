@@ -1,0 +1,15 @@
+# Smart Gate API client and terminal hardware
+requests>=2.31,<3
+smbus2>=0.4,<1
+
+# Card authentication
+pyscard>=2.0,<3
+
+# Face registration and authentication
+fastapi
+uvicorn[standard]
+python-multipart
+numpy>=1.26,<3
+opencv-python-headless
+insightface
+onnxruntime

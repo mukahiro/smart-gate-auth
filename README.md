@@ -84,11 +84,12 @@ GPIOボタンで「入室」または「退出」を選択し、顔認証とカ�
 ```text
 smart-gate-auth/
 ├── README.md
+├── requirements.txt        # 全コンポーネント共通のPython依存関係
+├── .gitignore              # リポジトリ全体のGit除外設定
 ├── face/
 │   ├── register.py           # 顔画像・埋め込み登録API
 │   ├── authenticator.py      # 統合端末用の顔認証コンポーネント
-│   ├── README.md             # 顔認証のセットアップ・運用方法
-│   └── requirements.txt      # 顔認証のPython依存関係
+│   └── README.md             # 顔認証のセットアップ・運用方法
 ├── terminal/
 │   ├── app.py                # 統合認証Appのエントリーポイント
 │   ├── state_machine.py      # 認証セッションと状態遷移
@@ -97,8 +98,7 @@ smart-gate-auth/
 │   └── README.md             # 統合認証Appの設計・運用方法
 ├── card/
 │   ├── authenticator.py      # 統合端末用のカード認証コンポーネント
-│   ├── README.md             # カード認証のセットアップ・運用方法
-│   └── requirements.txt      # カード認証のPython依存関係
+│   └── README.md             # カード認証のセットアップ・運用方法
 └── experiments/             # 実験・手動検証用（実装本体には不使用）
 ```
 

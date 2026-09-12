@@ -77,9 +77,7 @@ sudo apt install python3-venv python3-picamera2 python3-rpi.gpio \
 
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
-python -m pip install -r terminal/requirements.txt
-python -m pip install -r face/requirements.txt
-python -m pip install -r card/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 カード認証に必要なCCID Escape Commandの設定は [カード認証](../card/README.md) を参照してください。顔データの登録方法は [顔認証](../face/README.md) にあります。
@@ -216,6 +214,7 @@ journalctl -u smart-gate-terminal -f
 | `hardware/lcd.py` | LCD表示、半角カタカナ変換、スクロール、ログへのフォールバック |
 | `hardware/buzzer.py` | ブザーの鳴動パターン |
 | `smart-gate-terminal.service` | systemd常駐起動の雛形 |
-| `requirements.txt` | 統合端末のPython依存パッケージ |
+
+全コンポーネントのPython依存パッケージはリポジトリ直下の `requirements.txt` で一括管理しています。
 
 送信ペイロードは `terminal/models.py` の `AttendanceEvent.payload()`、必要なAPIレスポンスは `terminal/attendance_client.py` で確認できます。
