@@ -1,5 +1,8 @@
 # カード認証アプリ
 
+> [!NOTE]
+> これは現在の統合認証Appからは使用されない、旧単体アプリの資料です。
+
 SONY PaSoRi RC-S300でFCF準拠の学生証を読み取り、学籍番号と入退室イベントをSmart Gate APIへ送信するPythonアプリケーションです。
 
 ## 機能
@@ -76,7 +79,7 @@ grep -A1 ifdDriverOptions /etc/libccid_Info.plist
 sudo systemctl restart pcscd
 ```
 
-必要に応じてRC-S300をUSBから抜き差ししてください。FeliCaコマンドやFCF領域の詳細は[fcf-card-reading.md](fcf-card-reading.md)を参照してください。
+必要に応じてRC-S300をUSBから抜き差ししてください。FeliCaコマンドやFCF領域の詳細は[FCF読み取り仕様](../../card/fcf-card-reading.md)を参照してください。
 
 ## 設定
 
@@ -112,7 +115,7 @@ APIサーバー側にも同じ`AUTH_APP_BEARER_TOKEN`を設定してください
 
 ```bash
 source card/.venv/bin/activate
-python3 card/card-auth.py
+python3 experiments/card/card-auth.py
 ```
 
 起動後、次の表示が出たら学生証をかざします。
@@ -129,7 +132,7 @@ Reader: SONY FeliCa RC-S300/P ...
 環境変数の代わりに一部の設定を引数で指定できます。
 
 ```bash
-python3 card/card-auth.py \
+python3 experiments/card/card-auth.py \
   --api-url http://localhost:3000/api/v1/attendance-events \
   --device-id entrance-card-reader-01 \
   --db-path card/card_auth.db \
@@ -138,7 +141,7 @@ python3 card/card-auth.py \
 ```
 
 ```bash
-python3 card/card-auth.py --help
+python3 experiments/card/card-auth.py --help
 ```
 
 セキュリティ上、tokenは`--token`より`AUTH_APP_BEARER_TOKEN`での指定を推奨します。
@@ -158,7 +161,7 @@ python3 card/card-auth.py --help
 }
 ```
 
-API仕様の詳細は[../api-endpoints.md](../api-endpoints.md)を参照してください。
+API仕様の詳細は[API仕様](../../api-endpoints.md)を参照してください。
 
 ## 入退室状態と再送
 
@@ -224,8 +227,8 @@ pip install -r card/requirements.txt
 | ファイル | 内容 |
 | --- | --- |
 | `card-auth.py` | FCF学生証読み取り・API送信アプリ |
-| `requirements.txt` | Python依存パッケージ |
-| `fcf-card-reading.md` | RC-S300とFCFの通信仕様 |
+| `../../card/requirements.txt` | Python依存パッケージ |
+| `../../card/fcf-card-reading.md` | RC-S300とFCFの通信仕様 |
 | `fcf-card-reading.py` | FCF読み取りの参考実装 |
 
 ## 注意事項

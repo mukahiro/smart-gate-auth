@@ -1,17 +1,18 @@
 # 顔認証アプリ
 
-顔画像から顔埋め込み（Embedding）を登録するHTTPサーバーと、Raspberry Pi Cameraで登録済みの顔を照合するアプリのセットアップ・運用方法です。
+顔画像から顔埋め込み（Embedding）を登録するHTTPサーバーと、統合認証Appで登録済みの顔を照合するコンポーネントのセットアップ・運用方法です。
 
 ## 構成
 
 | ファイル | 役割 |
 | --- | --- |
 | `face_auth_app.py` | 顔画像を受け取り、顔埋め込みをSQLiteへ登録するHTTPサーバー |
-| `face_recognition_app.py` | Raspberry Pi Cameraの映像を登録済み埋め込みと照合する顔認証アプリ |
+| `authenticator.py` | 統合認証Appから使用する顔認証コンポーネント |
+| `../experiments/face/face_recognition_app.py` | 現在は使用していない単体顔認証アプリ |
 | `requirements.txt` | 共通のPython依存パッケージ |
 | `face.db` | 顔埋め込みを保存するSQLite DB（登録サーバー起動時に作成、Git管理外） |
 
-両アプリはInsightFaceの同じモデルを使用し、L2正規化した埋め込みを`face_embeddings`テーブルで共有します。登録サーバーと認証アプリを別のマシンで動かす場合は、同じ内容の`face.db`を認証端末へ安全に配布する仕組みが別途必要です。
+登録サーバーと統合端末の顔認証コンポーネントはInsightFaceの同じモデルを使用し、L2正規化した埋め込みを`face_embeddings`テーブルで共有します。別のマシンで動かす場合は、同じ内容の`face.db`を認証端末へ安全に配布する仕組みが別途必要です。
 
 ```text
 顔画像（1～10枚）
@@ -45,7 +46,7 @@
 - 認証されないまま指定時間が過ぎるとタイムアウト結果を出力
 - カメラ画像は保存しない
 
-顔認証アプリは認証結果のJSONを出力するところまでを担当します。現時点では、入退室イベントAPIへの送信は行いません。
+現在の運用では`face/authenticator.py`を統合認証Appが呼び出し、認証結果を共通の入退室イベントに変換してAPIへ送信します。
 
 ## 必要環境
 
@@ -172,18 +173,18 @@ rpicam-hello --list-cameras
 
 ### 3. 実行
 
-登録サーバーと同じ`face/face.db`を使う場合は、次のように実行します。
+単体顔認証アプリは現在の実装からは呼び出されず、`experiments/face/`に保管しています。参考用に実行する場合は、登録サーバーと同じ`face/face.db`を使います。
 
 ```bash
 cd face
 source .venv/bin/activate
-python3 face_recognition_app.py
+python3 ../experiments/face/face_recognition_app.py
 ```
 
 引数で設定を変更する例です。
 
 ```bash
-python3 face_recognition_app.py \
+python3 ../experiments/face/face_recognition_app.py \
   --db ./face.db \
   --duration 8 \
   --threshold 0.5 \
