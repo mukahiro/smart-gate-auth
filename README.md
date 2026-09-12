@@ -98,12 +98,13 @@ smart-gate-auth/
 │   ├── attendance_api.py     # 再送しないAPIクライアント
 │   ├── hardware/             # ボタン、LCD、ブザーのアダプター
 │   └── README.md             # 統合認証Appの設計・運用方法
-└── card/
-    ├── card-auth.py          # カード認証アプリ
-    ├── card-auth.md          # カード認証のセットアップ・運用方法
-    ├── requirements.txt      # カード認証のPython依存関係
-    ├── fcf-card-reading.md   # RC-S300・FCF通信仕様
-    └── fcf-card-reading.py   # FCF読み取り参考実装
+├── card/
+│   ├── card-auth.py          # カード認証アプリ
+│   ├── card-auth.md          # カード認証のセットアップ・運用方法
+│   ├── requirements.txt      # カード認証のPython依存関係
+│   ├── fcf-card-reading.md   # RC-S300・FCF通信仕様
+│   └── fcf-card-reading.py   # FCF読み取り参考実装
+└── experiments/             # 実験・検証用（実装本体には不使用）
 ```
 
 ## セキュリティと運用上の注意
