@@ -57,12 +57,13 @@ python -m pip install -r requirements.txt
 
 ### 1. 設定
 
+初回だけ、リポジトリ直下で設定ファイルを作成します。
+
 ```bash
-export FACE_AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
-export FACE_AUTH_DB_PATH='face/face.db'
-export FACE_AUTH_MODEL_NAME='buffalo_sc'
-export FACE_AUTH_DET_SIZE='320'
+cp .env.example .env
 ```
+
+`.env` を開き、少なくとも `FACE_AUTH_APP_BEARER_TOKEN` に十分長いランダムな値を設定してください。その他の項目は必要な場合だけ変更します。このファイルは各プログラムが自動で読み込むため、起動ごとの `export` は不要です。
 
 | 環境変数 | 必須 | デフォルト | 説明 |
 | --- | --- | --- | --- |
@@ -99,7 +100,7 @@ curl http://127.0.0.1:8001/health
 
 ```bash
 curl -i -X PUT http://127.0.0.1:8001/ \
-  -H "Authorization: Bearer ${FACE_AUTH_APP_BEARER_TOKEN}" \
+  -H 'Authorization: Bearer .envに設定したトークン' \
   -F "studentNumber=1234567890" \
   -F "images=@front.jpg;type=image/jpeg" \
   -F "images=@left.jpg;type=image/jpeg" \
@@ -119,9 +120,6 @@ curl -i -X PUT http://127.0.0.1:8001/ \
 登録済みの `face.db` がある状態で、リポジトリ直下から起動します。
 
 ```bash
-export FACE_AUTH_DB_PATH='face/face.db'
-export FACE_AUTH_MODEL_NAME='buffalo_sc'
-export FACE_AUTH_THRESHOLD='0.5'
 python -m face.authenticator
 ```
 
@@ -134,10 +132,6 @@ python -m face.authenticator
 `face.db` に1人以上を登録したうえで、リポジトリ直下から統合端末を起動します。
 
 ```bash
-export AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
-export FACE_AUTH_DB_PATH='face/face.db'
-export FACE_AUTH_MODEL_NAME='buffalo_sc'
-export FACE_AUTH_THRESHOLD='0.5'
 python -m terminal.app
 ```
 

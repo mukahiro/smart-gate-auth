@@ -9,6 +9,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
 from terminal.attendance_client import AttendanceClient
 from terminal.hardware.buttons import ButtonController
 from terminal.hardware.buzzer import ConsoleBuzzer, GpioBuzzer
@@ -146,6 +148,8 @@ class TerminalApp:
 
 
 def parse_args() -> argparse.Namespace:
+    # リポジトリ直下の設定を読み、シェルで指定済みの環境変数は上書きしない。
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     base_url = os.getenv("AUTH_API_BASE_URL", "http://localhost:3000")
     endpoint = os.getenv("AUTH_API_ATTENDANCE_ENDPOINT", "/api/v1/attendance-events")
     parser = argparse.ArgumentParser(description="Smart Gate integrated authentication terminal")

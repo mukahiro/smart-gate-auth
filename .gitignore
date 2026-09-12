@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 
+# 端末固有の設定と秘密情報
+.env
+.env.local
+
 # IDE
 .vscode/
 .idea/

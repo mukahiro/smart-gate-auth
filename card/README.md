@@ -78,10 +78,10 @@ python -m card.authenticator
 
 ### 統合端末で使う
 
-カード認証を含む統合端末の起動方法です。APIのBearer tokenは必須です。
+カード認証を含む統合端末の起動方法です。初回にリポジトリ直下の `.env.example` を `.env` へコピーし、`AUTH_APP_BEARER_TOKEN` を設定してください。
 
 ```bash
-export AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
+cp .env.example .env  # 初回だけ
 python -m terminal.app
 ```
 

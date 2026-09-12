@@ -23,8 +23,8 @@ SQLiteスキーマ:
     face_embeddings(student_number TEXT, embedding BLOB)
 
 起動例:
-    export FACE_AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
-    uvicorn register:app --host 127.0.0.1 --port 8001
+    .envにFACE_AUTH_APP_BEARER_TOKENを設定する。
+    uvicorn face.register:app --host 127.0.0.1 --port 8001
 """
 
 import os
@@ -38,6 +38,7 @@ from typing import Annotated
 
 import cv2
 import numpy as np
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from insightface.app import FaceAnalysis
@@ -49,6 +50,9 @@ MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 # \dは全角数字なども許可するため、0〜9を明示して半角数字10桁だけに限定する。
 STUDENT_NUMBER_PATTERN = re.compile(r"^[0-9]{10}$")
+
+# リポジトリ直下の設定を読み、シェルで指定済みの環境変数は上書きしない。
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 # パスやモデルは実行環境ごとに変えられるよう、モジュール読み込み時に環境変数から取得する。
 DB_PATH = Path(os.getenv("FACE_AUTH_DB_PATH", "./face.db"))

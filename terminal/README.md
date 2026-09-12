@@ -86,11 +86,13 @@ python -m pip install -r requirements.txt
 
 ## 設定
 
-最小構成で必要な設定はBearer tokenだけです。
+初回だけ、リポジトリ直下で設定ファイルを作成します。
 
 ```bash
-export AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
+cp .env.example .env
 ```
+
+`.env` を開き、少なくとも `AUTH_APP_BEARER_TOKEN` にSmart Gate APIのBearer tokenを設定してください。以後は起動時に自動で読み込まれるため、毎回の `export` は不要です。
 
 | 環境変数 | 必須 | デフォルト | 説明 |
 | --- | --- | --- | --- |
@@ -104,12 +106,13 @@ export AUTH_APP_BEARER_TOKEN='replace-with-a-long-random-secret'
 | `AUTH_LCD_BUS` | 任意 | `1` | LCDのI2C bus |
 | `AUTH_LCD_ADDRESS` | 任意 | `0x27` | LCDのI2Cアドレス |
 
-例:
+`.env` の記入例:
 
-```bash
-export AUTH_API_BASE_URL='http://192.168.1.100:3000'
-export AUTH_DEVICE_ID='entrance-terminal-01'
-export FACE_AUTH_DB_PATH='face/face.db'
+```dotenv
+AUTH_APP_BEARER_TOKEN=replace-with-a-long-random-secret
+AUTH_API_BASE_URL=http://192.168.1.100:3000
+AUTH_DEVICE_ID=entrance-terminal-01
+FACE_AUTH_DB_PATH=face/face.db
 ```
 
 ## 起動
@@ -184,7 +187,7 @@ journalctl -u smart-gate-terminal -f
 
 ### `AUTH_APP_BEARER_TOKEN or --token is required`
 
-`AUTH_APP_BEARER_TOKEN` を設定してから起動してください。
+リポジトリ直下の `.env` に `AUTH_APP_BEARER_TOKEN` を設定してから起動してください。
 
 ### `no authentication device is available`
 

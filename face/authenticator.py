@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from dotenv import load_dotenv
 
 from terminal.models import AuthenticationResult
 
@@ -187,6 +188,8 @@ class FaceAuthenticator:
 
 def main() -> None:
     """顔を繰り返し認証し、学籍番号だけをコンソールに表示する。"""
+    # リポジトリ直下の設定を読み、シェルで指定済みの環境変数は上書きしない。
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     # 登録APIや統合端末と同じ環境変数を使い、単体実行でもモデルとDBを一致させる。
     authenticator = FaceAuthenticator(
         Path(os.getenv("FACE_AUTH_DB_PATH", "face/face.db")),
