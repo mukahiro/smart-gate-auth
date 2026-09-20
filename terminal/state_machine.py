@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 import threading
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -18,6 +19,21 @@ from .models import AuthenticationResult, AttendanceEvent, EventType, TerminalSt
 def format_local_datetime(now: datetime | None = None) -> str:
     current = now if now is not None else datetime.now().astimezone()
     return current.strftime("%Y/%m/%d %H:%M")
+
+
+def get_web_ipv4_address() -> str | None:
+    """Return the IPv4 address used by the default network route."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            # UDP connect only selects a route; it does not send a packet.
+            sock.connect(("8.8.8.8", 80))
+            address = sock.getsockname()[0]
+    except OSError:
+        return None
+
+    if address.startswith("127.") or address == "0.0.0.0":
+        return None
+    return address
 
 
 class Authenticator(Protocol):
@@ -186,12 +202,13 @@ class SessionController:
         await self._idle()
 
     async def _idle(self) -> None:
+        web_address = get_web_ipv4_address()
         await self._notify(
             TerminalState.IDLE,
             ":: smart gate ::",
             format_local_datetime(),
             "[ﾆｭｳｼﾂ]  [ﾀｲｼﾂ]",
-            "ﾎﾞﾀﾝｦ ｵｼﾃｸﾀﾞｻｲ",
+            f"IP: {web_address}" if web_address else "NO NETWORK",
         )
 
     def close(self) -> None:
