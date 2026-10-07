@@ -38,6 +38,10 @@
 - Picamera2 / libcamera
 - 登録済みの `face.db`
 
+## Raspberry Pi起動時の自動起動
+
+`smart-gate-face-register.service` は `127.0.0.1:8001` で顔登録APIを起動する設定です。統合端末と共通の顔DBを使う配置・モデル取得・自動起動は[導入手順](../docs/raspberry-pi-startup.md)を参照してください。
+
 ## セットアップ
 
 Raspberry Pi上で顔登録APIと顔認証の両方を使う例です。Picamera2はOSのパッケージを使うため、仮想環境からシステムパッケージを参照できるようにします。

@@ -168,21 +168,14 @@ python -m experiments.terminal.lcd_test --address 0x27 --seconds 30
 
 ## systemdで常駐起動する
 
-`smart-gate-terminal.service` は、リポジトリを `/opt/smart-gate-auth` へ配置する想定の雛形です。
+`smart-gate-terminal.service` は `/opt/smart-gate-auth`、専用ユーザー `smartgate`、環境ファイル `/etc/smart-gate-auth/auth.env` を使う設定です。顔登録APIも別サービスで起動し、その準備完了を待って端末を開始します。
 
-```bash
-sudo cp terminal/smart-gate-terminal.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now smart-gate-terminal
-sudo systemctl status smart-gate-terminal
-```
-
-`/etc/systemd/system/smart-gate-terminal.service` の配置先、実行ユーザー、仮想環境のパスを実環境に合わせてください。また、`/etc/smart-gate-terminal.env` に必要な環境変数を設定し、実行ユーザーにカメラ、GPIO、I2C、PC/SCを利用する権限を与えます。
+ユーザー作成、機器権限、モデルと顔DBの配置、サービス有効化は[自動起動の導入手順](../docs/raspberry-pi-startup.md)を参照してください。旧雛形の `/etc/smart-gate-terminal.env` を使っていた場合は、新しい環境ファイルへ設定を移します。
 
 ログは次のコマンドで確認できます。
 
 ```bash
-journalctl -u smart-gate-terminal -f
+sudo journalctl -u smart-gate-terminal -f
 ```
 
 ## トラブルシューティング

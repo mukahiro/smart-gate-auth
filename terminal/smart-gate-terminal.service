@@ -1,18 +1,30 @@
 [Unit]
 Description=Smart Gate integrated authentication terminal
-After=network-online.target pcscd.service
-Wants=network-online.target
+After=network-online.target pcscd.service smart-gate-face-register.service
+Wants=network-online.target pcscd.service smart-gate-face-register.service
+# 起動時に機器やモデルが準備できなくても復旧を続ける。
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/smart-gate-auth
-EnvironmentFile=/etc/smart-gate-terminal.env
-ExecStart=/opt/smart-gate-auth/.venv/bin/python -m terminal.app
-Restart=on-failure
-RestartSec=3
 User=smartgate
 Group=smartgate
+WorkingDirectory=/opt/smart-gate-auth
+EnvironmentFile=/etc/smart-gate-auth/auth.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+# 顔登録APIのDB初期化前に、顔認証が無効な状態で端末を起動しない。
+ExecStartPre=/opt/smart-gate-auth/.venv/bin/python deploy/raspberry-pi/wait-for-face-api.py
+ExecStart=/opt/smart-gate-auth/.venv/bin/python -m terminal.app
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=180
+TimeoutStopSec=45
+StateDirectory=smart-gate-auth
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
 
 [Install]
 WantedBy=multi-user.target
-
